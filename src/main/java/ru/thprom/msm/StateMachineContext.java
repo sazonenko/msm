@@ -2,9 +2,11 @@ package ru.thprom.msm;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.thprom.msm.api.Event;
+import ru.thprom.msm.api.EventProcessor;
+import ru.thprom.msm.api.State;
 
 import javax.annotation.PreDestroy;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -79,30 +81,32 @@ public class StateMachineContext {
 			public void run() {
 
 				try {
+					TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
+
 					while (!destroy) {
-						Map<String, Object> stateBefore = store.findStateWithEvent();
+						State stateBefore = store.findStateWithEvent();
 						if (null == stateBefore) {
 							TimeUnit.SECONDS.sleep(timeout);
 							continue;
 						}
-						String stateName = (String) stateBefore.get(store.FIELD_STATE_NAME);
-						ArrayList events = (ArrayList) stateBefore.get("events");
-						Map<String, Object> event = (Map<String, Object>) events.get(0);
-						String eventName = (String) event.get("event");
-						EventProcessor processor = eventListeners.get(getListenerKey(stateName, eventName));
+						String stateName = stateBefore.getStateName();
+						Event event = stateBefore.getEvents().get(0);
+						String eventType = event.getType();
+						EventProcessor processor = eventListeners.get(getListenerKey(stateName, eventType));
 
 						if (null == processor) {
-							store.updateState(stateBefore.get("_id"), "err_no_processor", null, event.get("id")); //ToDo set to error status
+							log.warn("No processor fount for state [{}], event [{}]", stateName, eventType);
+							stateBefore.setStatus("err_no_processor");
+							store.updateStateStatus(stateBefore);
 							continue;
 						}
 
-						Map<String, Object> stateAfter = processor.process(stateBefore, event);
+						State stateAfter = processor.process(stateBefore, event);
 						if (null == stateAfter) {
-							store.delete(stateBefore.get("_id"));
+							store.delete(stateBefore.getId());
 						} else {
-							String newStateName = (String) stateAfter.get("name");
-							Map<String, Object> data = (Map<String, Object>) stateAfter.get("data");
-							store.updateState(stateBefore.get("_id"), newStateName, data, event.get("id"));
+							Map<String, Object> data = stateAfter.getData();
+							store.updateState(stateAfter, event);
 						}
 					}
 				} catch (InterruptedException e) {

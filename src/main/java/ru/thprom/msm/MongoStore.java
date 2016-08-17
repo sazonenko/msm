@@ -13,6 +13,8 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.thprom.msm.api.Event;
+import ru.thprom.msm.api.State;
 
 import javax.annotation.PreDestroy;
 import java.util.Date;
@@ -23,6 +25,7 @@ import java.util.Map;
  */
 public class MongoStore {
 	public static final String FIELD_MOD_TIME = "mTime";
+	public static final String STATUS_PROCESS = "process";
 	private static Logger log = LoggerFactory.getLogger(MongoStore.class);
 
 	public static final String STATES_COLLECTION = "states";
@@ -65,16 +68,20 @@ public class MongoStore {
 		return stateDoc.get("_id", ObjectId.class);
 	}
 
-	public void updateState(Object stateId, String stateName, Map<String, Object> data, Object eventId) {
-		Document filter = new Document("_id", stateId);
-		Document updateDoc = new Document(FIELD_STATE_NAME, stateName)
+	public void updateState(State state, Event event) {
+		Document filter = new Document("_id", state.getId());
+		Document updateDoc = new Document(FIELD_STATE_NAME, state.getStateName())
 				.append(FIELD_MOD_TIME, new Date())
-				.append(FIELD_STATUS, "");
-		if (null != data) {
-			updateDoc.append(FIELD_DATA, data);
+				.append(FIELD_DATA, state.getData());
+
+		if (STATUS_PROCESS.equals(state.getStatus())) {
+			updateDoc.append(FIELD_STATUS, "");
+		} else {
+			updateDoc.append(FIELD_STATUS, state.getStatus());
 		}
+
 		Document document = new Document("$set", updateDoc)
-				.append("$pull", new Document(FIELD_EVENTS, new Document("id", eventId)))
+				.append("$pull", new Document(FIELD_EVENTS, new Document("id", event.getId())))
 				.append("$inc", new Document("eventCount", -1));
 
 		log.debug("update doc: {}", document);
@@ -82,6 +89,14 @@ public class MongoStore {
 		collection.updateOne(filter, document);
 	}
 
+	public void updateStateStatus(State state) {
+		Document filter = new Document("_id", state.getId());
+		Document updateDoc = new Document(FIELD_STATUS, state.getStatus());
+		Document document = new Document("$set", updateDoc);
+
+		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		collection.updateOne(filter, document);
+	}
 	public boolean saveEvent(String eventType, Object stateId, Map<String, Object> data) {
 		Document filter = new Document("_id", stateId);
 		Document eventDoc = new Document("event", eventType)
@@ -102,23 +117,14 @@ public class MongoStore {
 		return true;
 	}
 
-	public Map<String, Object> getStateWithEvent(String state, String event) {
-		MongoCollection<Document> collection = dbs.getCollection(collectionName);
-		Document filter = new Document(FIELD_STATE_NAME, state)
-				.append("events.event", event)  // FIELD_EVENTS
-				.append(FIELD_STATUS, "");
-		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
-		log.debug("filter doc: {}", filter);
-		return collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
-	}
-
-	public Map<String, Object> findStateWithEvent() {
+	public State findStateWithEvent() {
 		MongoCollection<Document> collection = dbs.getCollection(collectionName);
 		Document filter = new Document(FIELD_STATUS, "")
 				.append("eventCount", new Document("$gt", 0));
 		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
 
-		return collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
+		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
+		return new State(stateDoc);
 	}
 
 	public void delete(Object id) {

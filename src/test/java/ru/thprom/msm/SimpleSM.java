@@ -8,7 +8,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -31,13 +30,13 @@ public class SimpleSM {
 	@Test
 	public void testSm() throws InterruptedException {
 		smc.addListener("one", (state, event) -> {
-			log.info("init state [{}] processed", state);
+			log.info("one : init state [{}] processed", state);
 			return null;
 		});
 
 		smc.addListener("two", (state, event) -> {
-			log.info("init state [{}] processed", state);
-			state.put("name", "three");
+			log.info("two : init state [{}] processed", state);
+			state.setStateName("three");
 			return state;
 		});
 
