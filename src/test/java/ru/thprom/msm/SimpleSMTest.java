@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import ru.thprom.msm.api.Store;
 
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
@@ -13,18 +14,18 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by void on 08.08.16
  */
-public class SimpleSM {
-	private static Logger log = LoggerFactory.getLogger(SimpleSM.class);
+public class SimpleSMTest {
+	private static Logger log = LoggerFactory.getLogger(SimpleSMTest.class);
 
 	private StateMachineContext smc;
-	private MongoStore store;
+	private Store store;
 
 	@Before
 	public void init() {
 		ApplicationContext appContext = new AnnotationConfigApplicationContext(SpringContext.class);
 		smc = appContext.getBean("smContext", StateMachineContext.class);
 		store = appContext.getBean("mongoStore", MongoStore.class);
-
+		store.clear();
 	}
 
 	@Test

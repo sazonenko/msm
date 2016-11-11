@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import ru.thprom.msm.api.Event;
 import ru.thprom.msm.api.EventProcessor;
 import ru.thprom.msm.api.State;
+import ru.thprom.msm.api.Store;
 
 import javax.annotation.PreDestroy;
 import java.util.HashMap;
@@ -21,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class StateMachineContext {
 	private static Logger log = LoggerFactory.getLogger(StateMachineContext.class);
 
-	private MongoStore store;
+	private Store store;
 	private Map<String, EventProcessor> eventListeners;
 	private ExecutorService processExecutor;
 	private boolean destroy;
@@ -69,6 +70,7 @@ public class StateMachineContext {
 
 	public void addListener(String state, String event, EventProcessor listener) {
 		eventListeners.put(getListenerKey(state, event), listener);
+		store.notifyListenerAdded(state, event);
 	}
 
 	private String getListenerKey(String state, String event) {
@@ -81,7 +83,7 @@ public class StateMachineContext {
 			public void run() {
 
 				try {
-					TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
+					//TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
 
 					while (!destroy) {
 						State stateBefore = store.findStateWithEvent();
@@ -96,7 +98,7 @@ public class StateMachineContext {
 
 						if (null == processor) {
 							log.warn("No processor fount for state [{}], event [{}]", stateName, eventType);
-							stateBefore.setStatus("err_no_processor");
+							stateBefore.setStatus(Store.STATUS_ERROR_NO_PROCESSOR);
 							store.updateStateStatus(stateBefore);
 							continue;
 						}
@@ -133,7 +135,7 @@ public class StateMachineContext {
 
 	}
 
-	public void setStore(MongoStore store) {
+	public void setStore(Store store) {
 		this.store = store;
 	}
 

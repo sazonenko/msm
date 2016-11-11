@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 import org.springframework.core.env.Environment;
+import ru.thprom.msm.api.Store;
 
 /**
  * Created by void on 26.07.2016
@@ -21,7 +22,7 @@ public class SpringContext {
 	private Environment env;
 
 	@Bean
-	public MongoStore mongoStore() {
+	public Store mongoStore() {
 		MongoStore mongoStore = new MongoStore();
 		mongoStore.setHost(env.getProperty("mongo.host"));
 		mongoStore.setPort(env.getProperty("mongo.port", Integer.class));

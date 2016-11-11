@@ -73,41 +73,6 @@
                     <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
-
-            <!-- Generate Java classes from WSDL during build -->
-<!--
-			<plugin>
-				<groupId>org.apache.cxf</groupId>
-				<artifactId>cxf-codegen-plugin</artifactId>
-				<version>${cxf.version}</version>
-				<executions>
-					<execution>
-						<id>generate-sources</id>
-						<phase>generate-sources</phase>
-						<configuration>
-							<sourceRoot>${basedir}/src/main/java</sourceRoot>
-							<wsdlOptions>
-								<wsdlOption>
-									<wsdl>${basedir}/src/main/wsdl/PackageManager.wsdl</wsdl>
-									<extraargs>
-										<extraarg>-client</extraarg>
-										<extraarg>-p</extraarg>
-										<extraarg>ru.rr.mds.husky.process.routing.client</extraarg>
-&lt;!&ndash;
-										<extraarg>-wsdlLocation</extraarg>
-										<extraarg>classpath:META-INF/wsdl/PackageProcessor.wsdl</extraarg>
-&ndash;&gt;
-									</extraargs>
-								</wsdlOption>
-							</wsdlOptions>
-						</configuration>
-						<goals>
-							<goal>wsdl2java</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
--->
         </plugins>
     </build>
 </project>

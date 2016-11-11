@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.thprom.msm.api.Event;
 import ru.thprom.msm.api.State;
+import ru.thprom.msm.api.Store;
 
 import javax.annotation.PreDestroy;
 import java.util.Date;
@@ -23,17 +24,16 @@ import java.util.Map;
 /**
  * Created by void on 11.12.15
  */
-public class MongoStore {
-	public static final String FIELD_MOD_TIME = "mTime";
-	public static final String STATUS_PROCESS = "process";
+public class MongoStore implements Store {
 	private static Logger log = LoggerFactory.getLogger(MongoStore.class);
-
 	public static final String STATES_COLLECTION = "states";
 
 	public static final String FIELD_EVENTS = "events";
-	public static final String FIELD_DATA = "data";
+
 	public static final String FIELD_STATE_NAME = "name";
 	public static final String FIELD_STATUS = "status";
+	public static final String FIELD_MOD_TIME = "mTime";
+	public static final String FIELD_DATA = "data";
 
 	private MongoClient softClient;
 	private MongoClient hardClient;
@@ -58,6 +58,7 @@ public class MongoStore {
 	}
 
 
+	@Override
 	public ObjectId saveState(String stateName, Map<String, Object> data) {
 		Document stateDoc = new Document(FIELD_STATE_NAME, stateName)
 				.append(FIELD_MOD_TIME, new Date())
@@ -68,6 +69,7 @@ public class MongoStore {
 		return stateDoc.get("_id", ObjectId.class);
 	}
 
+	@Override
 	public void updateState(State state, Event event) {
 		Document filter = new Document("_id", state.getId());
 		Document updateDoc = new Document(FIELD_STATE_NAME, state.getStateName())
@@ -89,6 +91,7 @@ public class MongoStore {
 		collection.updateOne(filter, document);
 	}
 
+	@Override
 	public void updateStateStatus(State state) {
 		Document filter = new Document("_id", state.getId());
 		Document updateDoc = new Document(FIELD_STATUS, state.getStatus());
@@ -97,6 +100,8 @@ public class MongoStore {
 		MongoCollection<Document> collection = dbh.getCollection(collectionName);
 		collection.updateOne(filter, document);
 	}
+
+	@Override
 	public boolean saveEvent(String eventType, Object stateId, Map<String, Object> data) {
 		Document filter = new Document("_id", stateId);
 		Document eventDoc = new Document("event", eventType)
@@ -117,6 +122,7 @@ public class MongoStore {
 		return true;
 	}
 
+	@Override
 	public State findStateWithEvent() {
 		MongoCollection<Document> collection = dbs.getCollection(collectionName);
 		Document filter = new Document(FIELD_STATUS, "")
@@ -127,11 +133,32 @@ public class MongoStore {
 		return new State(stateDoc);
 	}
 
+	@Override
+	public void notifyListenerAdded(String state, String event) {
+		Document filter = new Document(FIELD_STATE_NAME, state)
+				.append("events.event", event)  // FIELD_EVENTS
+				.append(FIELD_STATUS, STATUS_ERROR_NO_PROCESSOR);
+		Document update = new Document("$set", new Document(FIELD_STATUS, "").append(FIELD_MOD_TIME, new Date()));
+
+		MongoCollection<Document> collection = dbs.getCollection(collectionName);
+		UpdateResult updateResult = collection.updateMany(filter, update);
+		log.debug("update for listener [{}:{}]: {}", state, event, updateResult);
+	}
+
+	@Override
 	public void delete(Object id) {
 		MongoCollection<Document> collection = dbh.getCollection(collectionName);
 
 		DeleteResult deleteResult = collection.deleteOne(new Document("_id", id));
 		log.debug("delete {}, result: {}", id, deleteResult);
+	}
+
+	@Override
+	public void clear() {
+		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+
+		DeleteResult deleteResult = collection.deleteMany(new Document());
+		log.debug("delete all, result: {}", deleteResult);
 	}
 
 	@PreDestroy
@@ -155,4 +182,5 @@ public class MongoStore {
 	public void setCollectionName(String collectionName) {
 		this.collectionName = collectionName;
 	}
+
 }
