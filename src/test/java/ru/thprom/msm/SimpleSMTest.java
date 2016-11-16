@@ -50,7 +50,8 @@ public class SimpleSMTest {
 		Object stateTwo = smc.addState("two", new HashMap<>());
 		smc.saveEvent(stateTwo, "fire");
 
-		TimeUnit.SECONDS.sleep(3);
+		log.info("wait for events");
+		TimeUnit.SECONDS.sleep(10);
 		log.info("done");
 	}
 }

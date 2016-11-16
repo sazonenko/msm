@@ -81,23 +81,30 @@ public class StateMachineContext {
 		processExecutor.submit(new Runnable() {
 			@Override
 			public void run() {
-
+				log.trace("starting context");
 				try {
-					//TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
+					TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
 
 					while (!destroy) {
+						log.info("loop 1");
 						State stateBefore = store.findStateWithEvent();
+						log.info("loop 2");
 						if (null == stateBefore) {
+							log.trace("no events to process. sleep {}", timeout);
 							TimeUnit.SECONDS.sleep(timeout);
 							continue;
 						}
+						log.trace("before processing state: {}", stateBefore);
+
 						String stateName = stateBefore.getStateName();
 						Event event = stateBefore.getEvents().get(0);
 						String eventType = event.getType();
 						EventProcessor processor = eventListeners.get(getListenerKey(stateName, eventType));
 
+						log.info("loop 3");
+
 						if (null == processor) {
-							log.warn("No processor fount for state [{}], event [{}]", stateName, eventType);
+							log.warn("No processor found for state [{}], event [{}]", stateName, eventType);
 							stateBefore.setStatus(Store.STATUS_ERROR_NO_PROCESSOR);
 							store.updateStateStatus(stateBefore);
 							continue;
@@ -114,6 +121,7 @@ public class StateMachineContext {
 				} catch (InterruptedException e) {
 					log.warn("Thread interrupted");
 				}
+				log.info("context stopped");
 			}
 		});
 	}

@@ -82,4 +82,16 @@ public class State {
 	public void setEvents(List<Event> events) {
 		this.events = events;
 	}
+
+	@Override
+	public String toString() {
+		return "State{" +
+				"id=" + id +
+				", stateName='" + stateName + '\'' +
+				", status='" + status + '\'' +
+				", mTime=" + mTime +
+				", data=" + data +
+				", events=" + events +
+				'}';
+	}
 }

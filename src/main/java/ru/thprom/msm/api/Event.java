@@ -43,4 +43,13 @@ public class Event {
 	public void setData(Map<String, Object> data) {
 		this.data = data;
 	}
+
+	@Override
+	public String toString() {
+		return "Event{" +
+				"id=" + id +
+				", type='" + type + '\'' +
+				", data=" + data +
+				'}';
+	}
 }
