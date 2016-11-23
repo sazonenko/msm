@@ -6,10 +6,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import ru.thprom.msm.api.State;
 import ru.thprom.msm.api.Store;
 
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertNull;
 
 /**
  * Created by void on 08.08.16
@@ -18,22 +21,32 @@ public class SimpleSMTest {
 	private static Logger log = LoggerFactory.getLogger(SimpleSMTest.class);
 
 	private StateMachineContext smc;
-	private Store store;
 
 	@Before
 	public void init() {
 		ApplicationContext appContext = new AnnotationConfigApplicationContext(SpringContext.class);
 		smc = appContext.getBean("smContext", StateMachineContext.class);
-		store = appContext.getBean("mongoStore", MongoStore.class);
+		Store store = appContext.getBean("mongoStore", MongoStore.class);
 		store.clear();
 	}
 
 	@Test
-	public void testSm() throws InterruptedException {
+	public void testOneStep() throws InterruptedException {
 		smc.addListener("one", (state, event) -> {
 			log.info("one : init state [{}] processed", state);
 			return null;
 		});
+		Object key = smc.addState("one", new HashMap<>());
+		smc.start();
+
+		TimeUnit.SECONDS.sleep(1);
+		State state = smc.findState(key);
+		log.debug("found state: {}", state);
+		assertNull(state);
+	}
+
+	@Test
+	public void testTwoStep() throws InterruptedException {
 
 		smc.addListener("two", (state, event) -> {
 			log.info("two : init state [{}] processed", state);
@@ -46,7 +59,6 @@ public class SimpleSMTest {
 			return state;
 		});
 
-		smc.addState("one", new HashMap<>());
 		Object stateTwo = smc.addState("two", new HashMap<>());
 		smc.saveEvent(stateTwo, "fire");
 

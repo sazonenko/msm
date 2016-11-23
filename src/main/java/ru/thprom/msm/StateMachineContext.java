@@ -50,10 +50,20 @@ public class StateMachineContext {
 		store.saveEvent(state, id, null);
 	}
 
+	/**
+	 * create new State
+	 * @param state - nema of the state
+	 * @param data - additional data
+	 * @return Object ID identifying created state
+	 */
 	public Object addState(String state, Map<String, Object> data) {
 		Object id = store.saveState(state, data);
 		store.saveEvent(state, id, null);
 		return id;
+	}
+
+	public State findState(Object id) {
+		return store.findState(id);
 	}
 
 	public void saveEvent(Object stateID, String eventType) {
@@ -83,7 +93,7 @@ public class StateMachineContext {
 			public void run() {
 				log.trace("starting context");
 				try {
-					TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
+//					TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
 
 					while (!destroy) {
 						log.info("loop 1");

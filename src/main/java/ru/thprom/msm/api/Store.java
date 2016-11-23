@@ -1,7 +1,5 @@
 package ru.thprom.msm.api;
 
-import org.bson.types.ObjectId;
-
 import java.util.Map;
 
 /**
@@ -11,7 +9,7 @@ public interface Store {
 	String STATUS_PROCESS = "process";
 	String STATUS_ERROR_NO_PROCESSOR = "err_no_processor";
 
-	ObjectId saveState(String stateName, Map<String, Object> data);
+	Object saveState(String stateName, Map<String, Object> data);
 
 	void updateState(State state, Event event);
 
@@ -22,6 +20,8 @@ public interface Store {
 	State findStateWithEvent();
 
 	void notifyListenerAdded(String state, String event);
+
+	State findState(Object id);
 
 	void delete(Object id);
 

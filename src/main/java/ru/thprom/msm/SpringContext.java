@@ -35,7 +35,6 @@ public class SpringContext {
 	public StateMachineContext smContext() {
 		StateMachineContext context = new StateMachineContext();
 		context.setStore(mongoStore());
-		context.start();
 		return context;
 	}
 }

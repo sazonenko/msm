@@ -4,6 +4,7 @@ import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
@@ -143,6 +144,14 @@ public class MongoStore implements Store {
 		MongoCollection<Document> collection = dbs.getCollection(collectionName);
 		UpdateResult updateResult = collection.updateMany(filter, update);
 		log.debug("update for listener [{}:{}]: {}", state, event, updateResult);
+	}
+
+	@Override
+	public State findState(Object id) {
+		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		FindIterable<Document> docs = collection.find(new Document("_id", id)).limit(1);
+		Document first = docs.first();
+		return null == first ? null : new State(first);
 	}
 
 	@Override
