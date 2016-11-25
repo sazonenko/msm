@@ -28,10 +28,13 @@ public class State {
 		mTime = (Date) stateData.get("mTime");
 		data = (Map<String, Object>) stateData.get("data");
 		List<Map<String, Object>> events = (List<Map<String, Object>>) stateData.get("events");
-		this.events = new ArrayList<>(events.size());
-		for (Map<String, Object> eventDoc : events) {
-			Event event = new Event(eventDoc);
-			this.events.add(event);
+		int eventsCount = null == events? 0 : events.size();
+		this.events = new ArrayList<>(eventsCount);
+		if (null != events) {
+			for (Map<String, Object> eventDoc : events) {
+				Event event = new Event(id, eventDoc);
+				this.events.add(event);
+			}
 		}
 	}
 

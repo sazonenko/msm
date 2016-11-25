@@ -96,11 +96,9 @@ public class StateMachineContext {
 //					TimeUnit.SECONDS.sleep(timeout);  // wait for listeners
 
 					while (!destroy) {
-						log.info("loop 1");
 						State stateBefore = store.findStateWithEvent();
-						log.info("loop 2");
 						if (null == stateBefore) {
-							log.trace("no events to process. sleep {}", timeout);
+							log.trace("no events to process. sleep {}c.", timeout);
 							TimeUnit.SECONDS.sleep(timeout);
 							continue;
 						}
@@ -110,8 +108,6 @@ public class StateMachineContext {
 						Event event = stateBefore.getEvents().get(0);
 						String eventType = event.getType();
 						EventProcessor processor = eventListeners.get(getListenerKey(stateName, eventType));
-
-						log.info("loop 3");
 
 						if (null == processor) {
 							log.warn("No processor found for state [{}], event [{}]", stateName, eventType);

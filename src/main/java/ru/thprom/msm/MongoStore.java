@@ -21,6 +21,7 @@ import ru.thprom.msm.api.Store;
 import javax.annotation.PreDestroy;
 import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by void on 11.12.15
@@ -61,6 +62,7 @@ public class MongoStore implements Store {
 
 	@Override
 	public ObjectId saveState(String stateName, Map<String, Object> data) {
+		log.debug("save state '{}'", stateName);
 		Document stateDoc = new Document(FIELD_STATE_NAME, stateName)
 				.append(FIELD_MOD_TIME, new Date())
 				.append(FIELD_STATUS, "")
@@ -104,6 +106,7 @@ public class MongoStore implements Store {
 
 	@Override
 	public boolean saveEvent(String eventType, Object stateId, Map<String, Object> data) {
+		log.debug("save event '{}' for [{}]", eventType, stateId);
 		Document filter = new Document("_id", stateId);
 		Document eventDoc = new Document("event", eventType)
 				.append("id", new ObjectId());
@@ -130,8 +133,10 @@ public class MongoStore implements Store {
 				.append("eventCount", new Document("$gt", 0));
 		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
 
-		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
-		return new State(stateDoc);
+		log.debug("before find state with event");
+		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)).maxTime(50, TimeUnit.MILLISECONDS));
+		log.debug("found state [{}]", stateDoc);
+		return null == stateDoc ? null : new State(stateDoc);
 	}
 
 	@Override

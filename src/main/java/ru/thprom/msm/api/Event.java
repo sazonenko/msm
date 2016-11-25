@@ -7,6 +7,7 @@ import java.util.Map;
  */
 public class Event {
 	private Object id;
+	private Object stateId;
 	private String type;
 	private Map<String, Object> data;
 
@@ -14,8 +15,9 @@ public class Event {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Event(Map<String, Object> event) {
+	public Event(Object stateId, Map<String, Object> event) {
 		id = event.get("id");
+		this.stateId = stateId;
 		type = (String) event.get("event");
 		data = (Map<String, Object>) event.get("data");
 	}
@@ -26,6 +28,14 @@ public class Event {
 
 	public void setId(Object id) {
 		this.id = id;
+	}
+
+	public Object getStateId() {
+		return stateId;
+	}
+
+	public void setStateId(Object stateId) {
+		this.stateId = stateId;
 	}
 
 	public String getType() {
