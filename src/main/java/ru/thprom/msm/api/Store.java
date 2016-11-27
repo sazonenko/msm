@@ -8,6 +8,7 @@ import java.util.Map;
 public interface Store {
 	String STATUS_PROCESS = "process";
 	String STATUS_ERROR_NO_PROCESSOR = "err_no_processor";
+	String STATUS_ERROR = "processing_error";
 
 	Object saveState(String stateName, Map<String, Object> data);
 

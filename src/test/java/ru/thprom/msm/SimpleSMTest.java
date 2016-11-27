@@ -1,6 +1,8 @@
 package ru.thprom.msm;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,10 +13,13 @@ import ru.thprom.msm.api.Store;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Created by void on 08.08.16
@@ -32,16 +37,24 @@ public class SimpleSMTest {
 		store.clear();
 	}
 
+	@After
+	public void clean() {
+		smc.stop();
+	}
+
 	@Test
 	public void testOneStep() throws InterruptedException {
+		final CountDownLatch latch = new CountDownLatch(1);
+
 		smc.addListener("one", (state, event) -> {
 			log.info("one : init state [{}] processed", state);
+			latch.countDown();
 			return null;
 		});
 		Object key = smc.addState("one", new HashMap<>());
-		smc.start();
+		smc.start(1);
 
-		TimeUnit.SECONDS.sleep(1);
+		latch.await();
 		State state = smc.findState(key);
 		log.debug("found state: {}", state);
 		assertNull(state);
@@ -49,6 +62,8 @@ public class SimpleSMTest {
 
 	@Test
 	public void testTwoStep() throws InterruptedException {
+
+		final CountDownLatch latch = new CountDownLatch(1);
 
 		smc.addListener("two", (state, event) -> {
 			log.info("two : init state [{}] processed", state);
@@ -58,29 +73,35 @@ public class SimpleSMTest {
 
 		smc.addListener("three", "fire", (state, event) -> {
 			log.info("fire event of the state [{}] processed", state);
+			latch.countDown();
 			return state;
 		});
 
 		Object stateTwoId = smc.addState("two", new HashMap<>());
-		smc.start();
+		smc.start(1);
 		TimeUnit.SECONDS.sleep(2);
 		smc.saveEvent(stateTwoId, "fire");
 
 		log.info("wait for events");
-		TimeUnit.SECONDS.sleep(2);
+		latch.await();
 		State stateTwo = smc.findState(stateTwoId);
 		log.debug("found state: {}", stateTwo);
 		assertNotNull(stateTwo);
 		log.info("done");
 	}
 
+	@Ignore
 	@Test
 	public void testConcurrent() throws InterruptedException {
+
+		final AtomicInteger total = new AtomicInteger(0);
+		final CountDownLatch latch = new CountDownLatch(1);
+
 		smc.addListener("start", (state, event) -> {
 			log.info("start : state [{}] processed", state);
 
 			int workCount = 0;
-			for (int i=0; i<10; i+=2) {
+			for (int i=0; i<1000; i+=2) {
 				Map<String, Object> data = new HashMap<>();
 				data.put("parent", event.getStateId());
 				data.put("left", i);
@@ -125,13 +146,17 @@ public class SimpleSMTest {
 				return state;
 			} else {
 				log.info("All done! result: {}", result);
+				total.set(result);
+				latch.countDown();
 				return null;
 			}
 		});
 
-		Object stateId = smc.addState("start", new HashMap<>());
-		smc.start();
-		TimeUnit.SECONDS.sleep(10);
-		log.info("test done");
+
+		smc.addState("start", new HashMap<>());
+		smc.start(3);
+		latch.await();
+		log.info("test done. result: {}", total.get());
+		assertTrue(499500 == total.get());
 	}
 }

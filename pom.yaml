@@ -1,0 +1,31 @@
+modelVersion: 4.0.0
+groupId: ru.thprom.msm
+artifactId: msm
+version: 0.1-SNAPSHOT
+packaging: jar
+properties: {
+  slf4j.version: 1.7.7,
+  spring.version: 4.1.2.RELEASE,
+  mongo.version: 3.2.0
+}
+
+dependencies:
+- {artifactId: spring-context, groupId: org.springframework, version: '${spring.version}'}
+- {artifactId: mongo-java-driver, groupId: org.mongodb, version: '${mongo.version}'}
+- {artifactId: slf4j-api, groupId: org.slf4j, version: '${slf4j.version}'}
+- {artifactId: slf4j-log4j12, groupId: org.slf4j, version: '${slf4j.version}'}
+- {artifactId: junit, groupId: junit, scope: test, version: 4.12}
+
+build:
+  finalName: ${project.artifactId}
+  plugins:
+  - groupId: org.apache.maven.plugins
+    artifactId: maven-compiler-plugin
+    version: 3.1
+    configuration: {source: 1.8, target: 1.8, encoding: UTF-8}
+  - groupId: org.apache.maven.plugins
+    artifactId: maven-resources-plugin
+    version: 2.6
+    configuration: {encoding: UTF-8}
+modelEncoding: UTF-8
+#pomFile: {pom.xml1}
