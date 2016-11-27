@@ -4,9 +4,9 @@ artifactId: msm
 version: 0.1-SNAPSHOT
 packaging: jar
 properties: {
-  slf4j.version: 1.7.7,
+  slf4j.version: 1.7.21,
   spring.version: 4.1.2.RELEASE,
-  mongo.version: 3.2.0
+  mongo.version: 3.2.2
 }
 
 dependencies:
@@ -29,3 +29,5 @@ build:
     configuration: {encoding: UTF-8}
 modelEncoding: UTF-8
 #pomFile: {pom.xml1}
+# build from pom:
+# mvn io.takari.polyglot:polyglot-translate-plugin:translate -Dinput=old-pom.xml -Doutput=pom.yaml
