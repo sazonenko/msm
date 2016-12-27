@@ -1,5 +1,6 @@
 package ru.thprom.msm.api;
 
+import java.util.Date;
 import java.util.Map;
 
 /**
@@ -17,6 +18,8 @@ public interface Store {
 	void updateStateStatus(State state);
 
 	boolean saveEvent(String eventType, Object stateId, Map<String, Object> data);
+
+	void saveEvent(String eventType, Object stateId, Map<String, Object> data, Date fireTime);
 
 	State findStateWithEvent();
 

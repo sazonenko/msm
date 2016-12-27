@@ -18,17 +18,19 @@ import ru.thprom.msm.api.Event;
 import ru.thprom.msm.api.State;
 import ru.thprom.msm.api.Store;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by void on 11.12.15
  */
 public class MongoStore implements Store {
 	private static Logger log = LoggerFactory.getLogger(MongoStore.class);
+	public static final String COLLECTION_PREFIX = "msm_";
 	public static final String STATES_COLLECTION = "states";
+	public static final String DELAYED_EVENTS_COLLECTION = "delayed_events";
 
 	public static final String FIELD_EVENTS = "events";
 
@@ -36,6 +38,10 @@ public class MongoStore implements Store {
 	public static final String FIELD_STATUS = "status";
 	public static final String FIELD_MOD_TIME = "mTime";
 	public static final String FIELD_DATA = "data";
+	public static final String FIELD_EVENT_COUNT = "eventCount";
+	public static final String EF_CREATED = "created";
+	public static final String DEF_STATE_ID = "stateId";
+	public static final String DEF_FIRE_TIME = "fireTime";
 
 	private MongoClient softClient;
 	private MongoClient hardClient;
@@ -44,7 +50,9 @@ public class MongoStore implements Store {
 	private String host;
 	private int port;
 	private String databaseName;
-	private String collectionName = STATES_COLLECTION;
+	private String collectionPrefix = COLLECTION_PREFIX;
+	private String statesCollectionName = STATES_COLLECTION;
+	private String delayedEventsCollection = DELAYED_EVENTS_COLLECTION;
 
 	public void connect() {
 		ServerAddress serverAddress = new ServerAddress(host, port);
@@ -59,6 +67,11 @@ public class MongoStore implements Store {
 		dbh = hardClient.getDatabase(databaseName);
 	}
 
+	@PostConstruct
+	public void init() {
+		statesCollectionName = collectionPrefix + STATES_COLLECTION;
+		delayedEventsCollection = collectionPrefix + DELAYED_EVENTS_COLLECTION;
+	}
 
 	@Override
 	public ObjectId saveState(String stateName, Map<String, Object> data) {
@@ -67,7 +80,7 @@ public class MongoStore implements Store {
 				.append(FIELD_MOD_TIME, new Date())
 				.append(FIELD_STATUS, "")
 				.append(FIELD_DATA, data);
-		MongoCollection<Document> states = dbh.getCollection(collectionName);
+		MongoCollection<Document> states = dbh.getCollection(statesCollectionName);
 		states.insertOne(stateDoc);
 		return stateDoc.get("_id", ObjectId.class);
 	}
@@ -87,10 +100,10 @@ public class MongoStore implements Store {
 
 		Document document = new Document("$set", updateDoc)
 				.append("$pull", new Document(FIELD_EVENTS, new Document("id", event.getId())))
-				.append("$inc", new Document("eventCount", -1));
+				.append("$inc", new Document(FIELD_EVENT_COUNT, -1));
 
 		log.debug("update doc: {}", document);
-		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 		collection.updateOne(filter, document);
 	}
 
@@ -100,24 +113,28 @@ public class MongoStore implements Store {
 		Document updateDoc = new Document(FIELD_STATUS, state.getStatus());
 		Document document = new Document("$set", updateDoc);
 
-		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 		collection.updateOne(filter, document);
 	}
 
 	@Override
 	public boolean saveEvent(String eventType, Object stateId, Map<String, Object> data) {
 		log.debug("save event '{}' for [{}]", eventType, stateId);
-		Document filter = new Document("_id", stateId);
 		Document eventDoc = new Document("event", eventType)
 				.append("id", new ObjectId());
 		if (null != data) {
 			eventDoc.append(FIELD_DATA, data);
 		}
-		eventDoc.append("created", new Date());
-		Document updateDoc = new Document("$inc", new Document("eventCount", 1))
-				.append("$push", new Document(FIELD_EVENTS, eventDoc));
+		eventDoc.append(EF_CREATED, new Date());
 
-		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		return saveEvent(stateId, eventDoc);
+	}
+
+	private boolean saveEvent(Object stateId, Document eventDoc) {
+		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
+		Document filter = new Document("_id", stateId);
+		Document updateDoc = new Document("$inc", new Document(FIELD_EVENT_COUNT, 1))
+				.append("$push", new Document(FIELD_EVENTS, eventDoc));
 		UpdateResult updateResult = collection.updateOne(filter, updateDoc);
 		if (updateResult.getModifiedCount() < 1) {
 			log.error("state({}) not found", stateId);
@@ -127,16 +144,48 @@ public class MongoStore implements Store {
 	}
 
 	@Override
+	public void saveEvent(String eventType, Object stateId, Map<String, Object> data, Date fireTime) {
+		log.debug("save delayed event '{}' for [{}], fire at [{}]", eventType, stateId, fireTime);
+		Document eventDoc = new Document("event", eventType)
+				.append("id", new ObjectId());
+		if (null != data) {
+			eventDoc.append(FIELD_DATA, data);
+		}
+
+		eventDoc.append(DEF_STATE_ID, stateId);
+		eventDoc.append(EF_CREATED, new Date());
+		eventDoc.append(DEF_FIRE_TIME, fireTime);
+		eventDoc.append(FIELD_STATUS, "");
+
+		MongoCollection<Document> collection = dbh.getCollection(delayedEventsCollection);
+		collection.insertOne(eventDoc);
+	}
+
+	@Override
 	public State findStateWithEvent() {
-		MongoCollection<Document> collection = dbs.getCollection(collectionName);
+		MongoCollection<Document> collection = dbs.getCollection(statesCollectionName);
 		Document filter = new Document(FIELD_STATUS, "")
-				.append("eventCount", new Document("$gt", 0));
+				.append(FIELD_EVENT_COUNT, new Document("$gt", 0));
 		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
 
 		log.debug("before find state with event");
-		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)).maxTime(50, TimeUnit.MILLISECONDS));
+		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
 		log.debug("found state [{}]", stateDoc);
 		return null == stateDoc ? null : new State(stateDoc);
+	}
+
+	public void processReadyEvent() {
+		MongoCollection<Document> collection = dbs.getCollection(delayedEventsCollection);
+		Document filter =  new Document(FIELD_STATUS, "")
+				.append(DEF_FIRE_TIME, new Document("$lte", new Date()));
+		Document update = new Document("$set", new Document("process", new Date()));
+
+		Document eventDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
+
+		Object stateId = eventDoc.remove(DEF_STATE_ID);
+		eventDoc.remove(DEF_FIRE_TIME);
+		eventDoc.append(FIELD_STATUS, "");
+		saveEvent(stateId, eventDoc);
 	}
 
 	@Override
@@ -146,14 +195,14 @@ public class MongoStore implements Store {
 				.append(FIELD_STATUS, STATUS_ERROR_NO_PROCESSOR);
 		Document update = new Document("$set", new Document(FIELD_STATUS, "").append(FIELD_MOD_TIME, new Date()));
 
-		MongoCollection<Document> collection = dbs.getCollection(collectionName);
+		MongoCollection<Document> collection = dbs.getCollection(statesCollectionName);
 		UpdateResult updateResult = collection.updateMany(filter, update);
 		log.debug("update for listener [{}:{}]: {}", state, event, updateResult);
 	}
 
 	@Override
 	public State findState(Object id) {
-		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 		FindIterable<Document> docs = collection.find(new Document("_id", id)).limit(1);
 		Document first = docs.first();
 		return null == first ? null : new State(first);
@@ -161,7 +210,7 @@ public class MongoStore implements Store {
 
 	@Override
 	public void delete(Object id) {
-		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 
 		DeleteResult deleteResult = collection.deleteOne(new Document("_id", id));
 		log.debug("delete {}, result: {}", id, deleteResult);
@@ -169,7 +218,7 @@ public class MongoStore implements Store {
 
 	@Override
 	public void clear() {
-		MongoCollection<Document> collection = dbh.getCollection(collectionName);
+		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 
 		DeleteResult deleteResult = collection.deleteMany(new Document());
 		log.debug("delete all, result: {}", deleteResult);
@@ -193,8 +242,8 @@ public class MongoStore implements Store {
 		this.databaseName = databaseName;
 	}
 
-	public void setCollectionName(String collectionName) {
-		this.collectionName = collectionName;
+	public void setCollectionsPrefix(String prefix) {
+		collectionPrefix = prefix;
 	}
 
 }

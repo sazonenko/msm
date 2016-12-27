@@ -8,6 +8,7 @@ import ru.thprom.msm.api.State;
 import ru.thprom.msm.api.Store;
 
 import javax.annotation.PreDestroy;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -74,6 +75,10 @@ public class StateMachineContext {
 		store.saveEvent(eventType, stateID, data);
 	}
 
+	public void saveEvent(Object stateID, String eventType, Map<String, Object> data, Date fireTime) {
+		store.saveEvent(eventType, stateID, data, fireTime);
+	}
+
 	public void addListener(String state, EventProcessor listener) {
 		addListener(state, state, listener);
 	}
@@ -91,21 +96,7 @@ public class StateMachineContext {
 		log.trace("starting context");
 
 		for (int i=0; i<threadCount; i++) {
-			processExecutor.submit(new Runnable() {
-				@Override
-				public void run() {
-					while (!destroy) {
-						try {
-							processEvent();
-						} catch (InterruptedException e) {
-							log.warn("Thread interrupted");
-							break;
-						} catch (Exception e) {
-							log.error("Error in processing thread", e);
-						}
-					}
-				}
-			});
+			processExecutor.submit(new Stoppable(new EventWorker()));
 		}
 	}
 
@@ -125,54 +116,94 @@ public class StateMachineContext {
 		}
 	}
 
+	/**
+	 * set up Store implementation
+	 * @param store - Store implementation
+	 */
 	public void setStore(Store store) {
 		this.store = store;
 	}
 
+	/**
+	 * @param timeout - timeout for wait after empty Store response
+	 */
 	public void setTimeout(int timeout) {
 		this.timeout = timeout;
 	}
 
+	/**
+	 * @param terminationTimeout - timeout for context termination, in seconds
+	 */
 	public void setTerminationTimeout(int terminationTimeout) {
 		this.terminationTimeout = terminationTimeout;
 	}
 
-	private void processEvent() throws InterruptedException {
-		State stateBefore = store.findStateWithEvent();
-		if (null == stateBefore) {
-			log.trace("no events to process. sleep {}c.", timeout);
-			TimeUnit.SECONDS.sleep(timeout);
-			return;
-		}
-		log.trace("before processing state: {}", stateBefore);
+	private class EventWorker implements Worker {
 
-		String stateName = stateBefore.getStateName();
-		Event event = stateBefore.getEvents().get(0);
-		String eventType = event.getType();
-		EventProcessor processor = eventListeners.get(getListenerKey(stateName, eventType));
+		@Override
+		public void run() throws InterruptedException {
+			State stateBefore = store.findStateWithEvent();
+			if (null == stateBefore) {
+				log.trace("no events to process. sleep {}c.", timeout);
+				TimeUnit.SECONDS.sleep(timeout);
+				return;
+			}
+			log.trace("before processing state: {}", stateBefore);
 
-		if (null == processor) {
-			log.warn("No processor found for state [{}], event [{}]", stateName, eventType);
-			stateBefore.setStatus(Store.STATUS_ERROR_NO_PROCESSOR);
-			store.updateStateStatus(stateBefore);
-			return;
-		}
+			String stateName = stateBefore.getStateName();
+			Event event = stateBefore.getEvents().get(0);
+			String eventType = event.getType();
+			EventProcessor processor = eventListeners.get(getListenerKey(stateName, eventType));
 
-		State stateAfter = null;
-		try {
-			stateAfter = processor.process(stateBefore, event);
-		} catch (Exception e) {
-			log.error("error processing state: [{"+ stateBefore +"}], event: [{"+ event +"}]", e);
-			stateAfter = stateBefore;
-			stateAfter.setStatus(Store.STATUS_ERROR);
-			Map<String, Object> data = stateAfter.getData();
-			data.put("exception", e);
-		}
-		if (null == stateAfter) {
-			store.delete(stateBefore.getId());
-		} else {
-			store.updateState(stateAfter, event);
+			if (null == processor) {
+				log.warn("No processor found for state [{}], event [{}]", stateName, eventType);
+				stateBefore.setStatus(Store.STATUS_ERROR_NO_PROCESSOR);
+				store.updateStateStatus(stateBefore);
+				return;
+			}
+
+			State stateAfter = null;
+			try {
+				stateAfter = processor.process(stateBefore, event);
+			} catch (Exception e) {
+				log.error("error processing state: [{"+ stateBefore +"}], event: [{"+ event +"}]", e);
+				stateAfter = stateBefore;
+				stateAfter.setStatus(Store.STATUS_ERROR);
+				Map<String, Object> data = stateAfter.getData();
+				data.put("exception", e);
+			}
+			if (null == stateAfter) {
+				store.delete(stateBefore.getId());
+			} else {
+				store.updateState(stateAfter, event);
+			}
 		}
 	}
 
+	private interface Worker {
+		void run() throws InterruptedException;
+	}
+	private class Stoppable implements Runnable {
+
+		private Worker worker;
+
+		public Stoppable(Worker worker) {
+			this.worker = worker;
+		}
+
+		@Override
+		public void run() {
+			while (!destroy) {
+				try {
+					worker.run();
+					//processEvent();
+				} catch (InterruptedException e) {
+					log.warn("Thread interrupted");
+					break;
+				} catch (Exception e) {
+					log.error("Error in processing thread", e);
+				}
+			}
+		}
+	}
 }
