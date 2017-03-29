@@ -23,6 +23,8 @@ public interface Store {
 
 	State findStateWithEvent();
 
+	boolean processReadyEvent();
+
 	void notifyListenerAdded(String state, String event);
 
 	State findState(Object id);

@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,12 +24,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class StateMachineContext {
 	private static Logger log = LoggerFactory.getLogger(StateMachineContext.class);
 
+	private static final int DEFAULT_THREAD_COUNT = 5;
+
 	private Store store;
 	private Map<String, EventProcessor> eventListeners;
 	private ExecutorService processExecutor;
+	private ScheduledExecutorService scheduledExecutorService;
 	private boolean destroy;
-	private int timeout = 1;
-	private int terminationTimeout = 60;
+	private int timeout = 500;
+	private int terminationTimeout = 60000;
 
 	public StateMachineContext() {
 		eventListeners = new HashMap<>();
@@ -37,7 +41,15 @@ public class StateMachineContext {
 			AtomicInteger count = new AtomicInteger();
 			@Override
 			public Thread newThread(Runnable r) {
-				return new Thread(r, "StateMachineContext-" + count.incrementAndGet());
+				return new Thread(r, "smc-worker-" + count.incrementAndGet());
+			}
+		});
+
+		scheduledExecutorService = Executors.newScheduledThreadPool(1, new ThreadFactory() {
+			AtomicInteger count = new AtomicInteger();
+			@Override
+			public Thread newThread(Runnable r) {
+				return new Thread(r, "smc-scheduled-" + count.incrementAndGet());
 			}
 		});
 	}
@@ -49,6 +61,15 @@ public class StateMachineContext {
 		}
 		Object id = store.saveState(state, stateData);
 		store.saveEvent(state, id, null);
+	}
+
+	/**
+	 * create new State
+	 * @param state - name of the state
+	 * @return Object ID identifying created state
+	 */
+	public Object addState(String state) {
+		return addState(state, new HashMap<>());
 	}
 
 	/**
@@ -92,23 +113,30 @@ public class StateMachineContext {
 		return state + "!" + event;
 	}
 
+	public void start() {
+		start(DEFAULT_THREAD_COUNT);
+	}
+
 	public void start(int threadCount) {
 		log.trace("starting context");
 
 		for (int i=0; i<threadCount; i++) {
 			processExecutor.submit(new Stoppable(new EventWorker()));
 		}
+
+		scheduledExecutorService.scheduleAtFixedRate(new DelayedEventWorker(), 100, 100, TimeUnit.MILLISECONDS);
 	}
 
 	@PreDestroy
 	public void stop() {
 		destroy = true;
 		try {
+			scheduledExecutorService.shutdown();
 			processExecutor.shutdown();
-			boolean done = processExecutor.awaitTermination(terminationTimeout, TimeUnit.SECONDS);
-			log.debug("terminated correctly: {}", done);
+			boolean done = processExecutor.awaitTermination(terminationTimeout, TimeUnit.MILLISECONDS);
+			log.debug("terminated: {}", done);
 			if (!done) {
-				log.error("process executor failed to terminate correctly");
+				log.error("process executor failed to terminate");
 				processExecutor.shutdownNow();
 			}
 		} catch (InterruptedException e) {
@@ -125,17 +153,30 @@ public class StateMachineContext {
 	}
 
 	/**
-	 * @param timeout - timeout for wait after empty Store response
+	 * set timeout for wait after empty Store response
+	 * @param timeout - timeout in milliseconds
 	 */
-	public void setTimeout(int timeout) {
+	public void setPollTimeout(int timeout) {
 		this.timeout = timeout;
 	}
 
 	/**
-	 * @param terminationTimeout - timeout for context termination, in seconds
+	 * set timeout for context termination
+	 * @param terminationTimeout - timeout in milliseconds
 	 */
 	public void setTerminationTimeout(int terminationTimeout) {
 		this.terminationTimeout = terminationTimeout;
+	}
+
+	private class DelayedEventWorker implements Runnable {
+
+		@Override
+		public void run() {
+			boolean result = true;
+			for (int i=0; i<100 && result; i++){
+				result = store.processReadyEvent();
+			}
+		}
 	}
 
 	private class EventWorker implements Worker {
@@ -144,8 +185,8 @@ public class StateMachineContext {
 		public void run() throws InterruptedException {
 			State stateBefore = store.findStateWithEvent();
 			if (null == stateBefore) {
-				log.trace("no events to process. sleep {}c.", timeout);
-				TimeUnit.SECONDS.sleep(timeout);
+				log.trace("no events to process. sleep {}ms.", timeout);
+				TimeUnit.MILLISECONDS.sleep(timeout);
 				return;
 			}
 			log.trace("before processing state: {}", stateBefore);

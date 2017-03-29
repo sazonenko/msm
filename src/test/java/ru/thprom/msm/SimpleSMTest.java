@@ -2,7 +2,6 @@ package ru.thprom.msm;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,15 +10,15 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import ru.thprom.msm.api.State;
 import ru.thprom.msm.api.Store;
 
+import java.util.Date;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Created by void on 08.08.16
@@ -57,7 +56,7 @@ public class SimpleSMTest {
 		latch.await();
 		State state = smc.findState(key);
 		log.debug("found state: {}", state);
-		assertNull(state);
+		assertNull("found state: " + state, state);
 	}
 
 	@Test
@@ -77,9 +76,9 @@ public class SimpleSMTest {
 			return state;
 		});
 
-		Object stateTwoId = smc.addState("two", new HashMap<>());
+		Object stateTwoId = smc.addState("two");
 		smc.start(1);
-		TimeUnit.SECONDS.sleep(2);
+//		TimeUnit.SECONDS.sleep(2);
 		smc.saveEvent(stateTwoId, "fire");
 
 		log.info("wait for events");
@@ -90,73 +89,34 @@ public class SimpleSMTest {
 		log.info("done");
 	}
 
-	@Ignore
 	@Test
-	public void testConcurrent() throws InterruptedException {
-
-		final AtomicInteger total = new AtomicInteger(0);
+	public void testDelayedEvent() throws InterruptedException {
 		final CountDownLatch latch = new CountDownLatch(1);
+		final AtomicInteger data = new AtomicInteger(0);
 
-		smc.addListener("start", (state, event) -> {
-			log.info("start : state [{}] processed", state);
-
-			int workCount = 0;
-			for (int i=0; i<1000; i+=2) {
-				Map<String, Object> data = new HashMap<>();
-				data.put("parent", event.getStateId());
-				data.put("left", i);
-				data.put("right", i+1);
-				smc.addState("work", data);
-				workCount++;
-			}
-
-			Map<String, Object> data = new HashMap<>();
-			data.put("result", 0);
-			data.put("count", workCount);
-			state.setData(data);
-			state.setStateName("wait");
-			log.info("start done");
+		smc.addListener("d1", (state, event) ->{
+			log.info("state d1");
 			return state;
 		});
 
-		smc.addListener("work", (state, event) -> {
-			log.info("work : state [{}] processed", state);
-			Map<String, Object> stateData = state.getData();
-			Map<String, Object> data = new HashMap<>();
-			int left = (Integer) stateData.get("left");
-			int right = (Integer) stateData.get("right");
-			data.put("result", left + right);
-			log.debug("work: before save event");
-			smc.saveEvent(stateData.get("parent"), "work_done", data);
+		smc.addListener("d1","showTime", (state, event) -> {
+			log.info("event 'showTime'");
+			data.incrementAndGet();
+			latch.countDown();
 			return null;
 		});
 
-		smc.addListener("wait", "work_done", (state, event) -> {
-			log.info("work_done : state [{}] processed", state);
-			Map<String, Object> stateData = state.getData();
-			Map<String, Object> eventData = event.getData();
+		smc.start(1);
+		Object d1 = smc.addState("d1");
+		Date startTime = new Date();
+		Date fireTime = new Date(startTime.getTime() + 100);
+		smc.saveEvent(d1, "showTime", new HashMap<>(), fireTime);
+		TimeUnit.MILLISECONDS.sleep(50);
+		assertEquals("event fired before timeout", data.get(), 0);
 
-			int count = (Integer) stateData.get("count");
-			int result = (Integer) stateData.get("result");
-			int value = (Integer) eventData.get("result");
-			stateData.put("count", count -= 1);
-			stateData.put("result", result += value);
-			log.debug("work_done: before end");
-			if (count > 0) {
-				return state;
-			} else {
-				log.info("All done! result: {}", result);
-				total.set(result);
-				latch.countDown();
-				return null;
-			}
-		});
-
-
-		smc.addState("start", new HashMap<>());
-		smc.start(3);
-		latch.await();
-		log.info("test done. result: {}", total.get());
-		assertTrue(499500 == total.get());
+		latch.await(1, TimeUnit.SECONDS);
+		assertEquals("wrong data after event", 1, data.get());
+		Date now = new Date();
+		assertEquals("the timeout has not expired",true, now.getTime()-fireTime.getTime() > 0);
 	}
 }

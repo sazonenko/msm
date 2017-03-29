@@ -75,14 +75,16 @@ public class MongoStore implements Store {
 
 	@Override
 	public ObjectId saveState(String stateName, Map<String, Object> data) {
-		log.debug("save state '{}'", stateName);
+		log.trace("before save state '{}'", stateName);
 		Document stateDoc = new Document(FIELD_STATE_NAME, stateName)
 				.append(FIELD_MOD_TIME, new Date())
 				.append(FIELD_STATUS, "")
 				.append(FIELD_DATA, data);
 		MongoCollection<Document> states = dbh.getCollection(statesCollectionName);
 		states.insertOne(stateDoc);
-		return stateDoc.get("_id", ObjectId.class);
+		ObjectId stateId = stateDoc.get("_id", ObjectId.class);
+		log.debug("saved state [{} : '{}']", stateId, stateName);
+		return stateId;
 	}
 
 	@Override
@@ -174,18 +176,25 @@ public class MongoStore implements Store {
 		return null == stateDoc ? null : new State(stateDoc);
 	}
 
-	public void processReadyEvent() {
+	@Override
+	public boolean processReadyEvent() {
 		MongoCollection<Document> collection = dbs.getCollection(delayedEventsCollection);
 		Document filter =  new Document(FIELD_STATUS, "")
 				.append(DEF_FIRE_TIME, new Document("$lte", new Date()));
-		Document update = new Document("$set", new Document("process", new Date()));
+		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
 
 		Document eventDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
 
-		Object stateId = eventDoc.remove(DEF_STATE_ID);
-		eventDoc.remove(DEF_FIRE_TIME);
-		eventDoc.append(FIELD_STATUS, "");
-		saveEvent(stateId, eventDoc);
+		if (null != eventDoc) {
+			Object stateId = eventDoc.remove(DEF_STATE_ID);
+			eventDoc.remove(DEF_FIRE_TIME);
+			eventDoc.append(FIELD_STATUS, "");
+			if (saveEvent(stateId, eventDoc)) {
+				DeleteResult deleteResult = collection.deleteOne(new Document("_id", eventDoc.get("_id")));
+				return deleteResult.getDeletedCount() > 0;
+			}
+		}
+		return false;
 	}
 
 	@Override
@@ -218,10 +227,12 @@ public class MongoStore implements Store {
 
 	@Override
 	public void clear() {
-		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
+		MongoCollection<Document> states = dbh.getCollection(statesCollectionName);
 
-		DeleteResult deleteResult = collection.deleteMany(new Document());
-		log.debug("delete all, result: {}", deleteResult);
+		DeleteResult statesResult = states.deleteMany(new Document());
+		log.debug("delete all states, result: {}", statesResult);
+		DeleteResult eventsResult = dbh.getCollection(delayedEventsCollection).deleteMany(new Document());
+		log.debug("delete all events, result: {}", statesResult);
 	}
 
 	@PreDestroy
