@@ -62,6 +62,7 @@ public class MongoStore implements Store {
 		MongoClientOptions hardOptions = new MongoClientOptions.Builder()
 				.writeConcern(WriteConcern.JOURNALED)
 				.writeConcern(WriteConcern.W1)
+				.codecRegistry(com.mongodb.MongoClient.getDefaultCodecRegistry())
 				.build();
 		hardClient = new MongoClient(serverAddress, hardOptions);
 		dbh = hardClient.getDatabase(databaseName);
@@ -100,19 +101,20 @@ public class MongoStore implements Store {
 			updateDoc.append(FIELD_STATUS, state.getStatus());
 		}
 
-		Document document = new Document("$set", updateDoc)
-				.append("$pull", new Document(FIELD_EVENTS, new Document("id", event.getId())))
-				.append("$inc", new Document(FIELD_EVENT_COUNT, -1));
-
+		Document document = new Document("$set", updateDoc);
+		if (null != event) {
+			document.append("$pull", new Document(FIELD_EVENTS, new Document("id", event.getId())))
+					.append("$inc", new Document(FIELD_EVENT_COUNT, -1));
+		}
 		log.debug("update doc: {}", document);
 		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 		collection.updateOne(filter, document);
 	}
 
 	@Override
-	public void updateStateStatus(State state) {
-		Document filter = new Document("_id", state.getId());
-		Document updateDoc = new Document(FIELD_STATUS, state.getStatus());
+	public void updateStateStatus(Object stateId, String status) {
+		Document filter = new Document("_id", stateId);
+		Document updateDoc = new Document(FIELD_STATUS, status);
 		Document document = new Document("$set", updateDoc);
 
 		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);

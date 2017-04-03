@@ -199,19 +199,20 @@ public class StateMachineContext {
 			if (null == processor) {
 				log.warn("No processor found for state [{}], event [{}]", stateName, eventType);
 				stateBefore.setStatus(Store.STATUS_ERROR_NO_PROCESSOR);
-				store.updateStateStatus(stateBefore);
+				store.updateStateStatus(stateBefore.getId(), Store.STATUS_ERROR_NO_PROCESSOR);
 				return;
 			}
 
-			State stateAfter = null;
+			State stateAfter;
 			try {
 				stateAfter = processor.process(stateBefore, event);
 			} catch (Exception e) {
-				log.error("error processing state: [{"+ stateBefore +"}], event: [{"+ event +"}]", e);
+				log.error("error processing state: ["+ stateBefore +"], event: ["+ event +"]", e);
 				stateAfter = stateBefore;
 				stateAfter.setStatus(Store.STATUS_ERROR);
 				Map<String, Object> data = stateAfter.getData();
-				data.put("exception", e);
+				data.put("exception", e.toString());
+				event = null; // prevent mark this event processed
 			}
 			if (null == stateAfter) {
 				store.delete(stateBefore.getId());

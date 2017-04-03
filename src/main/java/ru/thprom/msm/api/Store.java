@@ -13,9 +13,18 @@ public interface Store {
 
 	Object saveState(String stateName, Map<String, Object> data);
 
+	/**
+	 * update state after event processed
+	 * @param state - new state data
+	 * @param event - event that was processed. it will be deleted from state. can be null
+	 */
 	void updateState(State state, Event event);
 
-	void updateStateStatus(State state);
+	/**
+	 * update only status field of the state
+	 * @param status - new status
+	 */
+	void updateStateStatus(Object stateId, String status);
 
 	boolean saveEvent(String eventType, Object stateId, Map<String, Object> data);
 

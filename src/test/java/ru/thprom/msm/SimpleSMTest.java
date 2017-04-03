@@ -119,4 +119,22 @@ public class SimpleSMTest {
 		Date now = new Date();
 		assertEquals("the timeout has not expired",true, now.getTime()-fireTime.getTime() > 0);
 	}
+
+	@Test
+	public void testException() throws InterruptedException {
+		AtomicInteger i = new AtomicInteger();
+
+		smc.addListener("e1", (state, event) ->{
+			log.info("state e1");
+			if (i.incrementAndGet() == 1) {
+				throw new RuntimeException("i == 1");
+			}
+			return null;
+		});
+
+		smc.start(1);
+		Object e1 = smc.addState("e1");
+		TimeUnit.SECONDS.sleep(2);
+
+	}
 }
