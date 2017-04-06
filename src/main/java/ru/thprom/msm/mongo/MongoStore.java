@@ -1,4 +1,4 @@
-package ru.thprom.msm;
+package ru.thprom.msm.mongo;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -53,6 +53,7 @@ public class MongoStore implements Store {
 	private String collectionPrefix = COLLECTION_PREFIX;
 	private String statesCollectionName = STATES_COLLECTION;
 	private String delayedEventsCollection = DELAYED_EVENTS_COLLECTION;
+	private ObjectConverter converter;
 
 	public void connect() {
 		ServerAddress serverAddress = new ServerAddress(host, port);
@@ -72,6 +73,9 @@ public class MongoStore implements Store {
 	public void init() {
 		statesCollectionName = collectionPrefix + STATES_COLLECTION;
 		delayedEventsCollection = collectionPrefix + DELAYED_EVENTS_COLLECTION;
+		if (null == converter) {
+			converter = new SimpleJacksonObjectConverter();
+		}
 	}
 
 	@Override
@@ -79,8 +83,10 @@ public class MongoStore implements Store {
 		log.trace("before save state '{}'", stateName);
 		Document stateDoc = new Document(FIELD_STATE_NAME, stateName)
 				.append(FIELD_MOD_TIME, new Date())
-				.append(FIELD_STATUS, "")
-				.append(FIELD_DATA, data);
+				.append(FIELD_STATUS, "");
+		if (null != data) {
+			stateDoc.append(FIELD_DATA, converter.toDocument(data));
+		}
 		MongoCollection<Document> states = dbh.getCollection(statesCollectionName);
 		states.insertOne(stateDoc);
 		ObjectId stateId = stateDoc.get("_id", ObjectId.class);
@@ -93,7 +99,7 @@ public class MongoStore implements Store {
 		Document filter = new Document("_id", state.getId());
 		Document updateDoc = new Document(FIELD_STATE_NAME, state.getStateName())
 				.append(FIELD_MOD_TIME, new Date())
-				.append(FIELD_DATA, state.getData());
+				.append(FIELD_DATA, converter.toDocument(state.getContext()));
 
 		if (STATUS_PROCESS.equals(state.getStatus())) {
 			updateDoc.append(FIELD_STATUS, "");
@@ -125,9 +131,9 @@ public class MongoStore implements Store {
 	public boolean saveEvent(String eventType, Object stateId, Map<String, Object> data) {
 		log.debug("save event '{}' for [{}]", eventType, stateId);
 		Document eventDoc = new Document("event", eventType)
-				.append("id", new ObjectId());
+				.append("_id", new ObjectId());
 		if (null != data) {
-			eventDoc.append(FIELD_DATA, data);
+			eventDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
 		eventDoc.append(EF_CREATED, new Date());
 
@@ -153,7 +159,7 @@ public class MongoStore implements Store {
 		Document eventDoc = new Document("event", eventType)
 				.append("id", new ObjectId());
 		if (null != data) {
-			eventDoc.append(FIELD_DATA, data);
+			eventDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
 
 		eventDoc.append(DEF_STATE_ID, stateId);
@@ -175,7 +181,7 @@ public class MongoStore implements Store {
 		log.debug("before find state with event");
 		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
 		log.debug("found state [{}]", stateDoc);
-		return null == stateDoc ? null : new State(stateDoc);
+		return buildState(stateDoc);
 	}
 
 	@Override
@@ -215,8 +221,7 @@ public class MongoStore implements Store {
 	public State findState(Object id) {
 		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 		FindIterable<Document> docs = collection.find(new Document("_id", id)).limit(1);
-		Document first = docs.first();
-		return null == first ? null : new State(first);
+		return buildState(docs.first());
 	}
 
 	@Override
@@ -259,4 +264,16 @@ public class MongoStore implements Store {
 		collectionPrefix = prefix;
 	}
 
+	public void setConverter(ObjectConverter converter) {
+		this.converter = converter;
+	}
+
+	private State buildState(Document stateDoc) {
+		State result = null;
+		if (null != stateDoc) {
+			Map<String, Object> context = converter.toObject(stateDoc.get(FIELD_DATA, String.class));
+			result = new State(stateDoc, context);
+		}
+		return result;
+	}
 }

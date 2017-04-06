@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import ru.thprom.msm.api.Store;
+import ru.thprom.msm.mongo.MongoStore;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -62,7 +63,7 @@ public class ConcurrentProcessingTest {
 			Map<String, Object> data = new HashMap<>();
 			data.put("result", 0);
 			data.put("count", workCount);
-			state.setData(data);
+			state.setContext(data);
 			state.setStateName("wait");
 			log.info("start done");
 			return state;
@@ -70,19 +71,19 @@ public class ConcurrentProcessingTest {
 
 		smc.addListener("work", (state, event) -> {
 			log.info("work : state [{}] processed", state);
-			Map<String, Object> stateData = state.getData();
-			Map<String, Object> data = new HashMap<>();
+			Map<String, Object> stateData = state.getContext();
+			Map<String, Object> eventData = new HashMap<>();
 			int left = (Integer) stateData.get("left");
 			int right = (Integer) stateData.get("right");
-			data.put("result", left + right);
+			eventData.put("result", left + right);
 			log.debug("work: before save event");
-			smc.saveEvent(stateData.get("parent"), "work_done", data);
+			smc.saveEvent(stateData.get("parent"), "work_done", eventData);
 			return null;
 		});
 
 		smc.addListener("wait", "work_done", (state, event) -> {
 			log.info("work_done : state [{}] processed", state);
-			Map<String, Object> stateData = state.getData();
+			Map<String, Object> stateData = state.getContext();
 			Map<String, Object> eventData = event.getData();
 
 			int count = (Integer) stateData.get("count");

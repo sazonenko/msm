@@ -6,12 +6,14 @@ packaging: jar
 properties: {
   slf4j.version: 1.7.21,
   spring.version: 4.1.2.RELEASE,
-  mongo.version: 3.2.2
+  mongo.version: 3.2.2,
+  jackson.version: 2.8.7
 }
 
 dependencies:
 - {artifactId: spring-context, groupId: org.springframework, version: '${spring.version}'}
 - {artifactId: mongo-java-driver, groupId: org.mongodb, version: '${mongo.version}'}
+- {artifactId: jackson-databind, groupId: com.fasterxml.jackson.core, version: '${jackson.version}'}
 - {artifactId: slf4j-api, groupId: org.slf4j, version: '${slf4j.version}'}
 - {artifactId: slf4j-log4j12, groupId: org.slf4j, version: '${slf4j.version}'}
 - {artifactId: junit, groupId: junit, scope: test, version: 4.12}

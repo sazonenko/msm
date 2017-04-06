@@ -7,6 +7,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.PropertySources;
 import org.springframework.core.env.Environment;
 import ru.thprom.msm.api.Store;
+import ru.thprom.msm.mongo.MongoStore;
 
 /**
  * Created by void on 26.07.2016

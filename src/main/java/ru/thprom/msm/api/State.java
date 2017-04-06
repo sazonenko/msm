@@ -14,19 +14,19 @@ public class State {
 	private String stateName;
 	private String status;
 	private Date mTime;
-	private Map<String, Object> data;
+	private Map<String, Object> context;
 	private List<Event> events;
 
 	public State() {
 	}
 
 	@SuppressWarnings("unchecked")
-	public State(Map<String, Object> stateData) {
+	public State(Map<String, Object> stateData, Map<String, Object> context) {
 		id = stateData.get("_id");
 		stateName = (String) stateData.get("name");
 		status = (String) stateData.get("status");
 		mTime = (Date) stateData.get("mTime");
-		data = (Map<String, Object>) stateData.get("data");
+		this.context = context;
 		List<Map<String, Object>> events = (List<Map<String, Object>>) stateData.get("events");
 		int eventsCount = null == events? 0 : events.size();
 		this.events = new ArrayList<>(eventsCount);
@@ -70,12 +70,12 @@ public class State {
 		this.mTime = mTime;
 	}
 
-	public Map<String, Object> getData() {
-		return data;
+	public Map<String, Object> getContext() {
+		return context;
 	}
 
-	public void setData(Map<String, Object> data) {
-		this.data = data;
+	public void setContext(Map<String, Object> context) {
+		this.context = context;
 	}
 
 	public List<Event> getEvents() {
@@ -93,7 +93,7 @@ public class State {
 				", stateName='" + stateName + '\'' +
 				", status='" + status + '\'' +
 				", mTime=" + mTime +
-				", data=" + data +
+				", context=" + context +
 				", events=" + events +
 				'}';
 	}

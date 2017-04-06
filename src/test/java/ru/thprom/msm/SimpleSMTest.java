@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import ru.thprom.msm.api.State;
 import ru.thprom.msm.api.Store;
+import ru.thprom.msm.mongo.MongoStore;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -92,7 +93,7 @@ public class SimpleSMTest {
 	@Test
 	public void testDelayedEvent() throws InterruptedException {
 		final CountDownLatch latch = new CountDownLatch(1);
-		final AtomicInteger data = new AtomicInteger(0);
+		final AtomicInteger atomicInteger = new AtomicInteger(0);
 
 		smc.addListener("d1", (state, event) ->{
 			log.info("state d1");
@@ -101,7 +102,7 @@ public class SimpleSMTest {
 
 		smc.addListener("d1","showTime", (state, event) -> {
 			log.info("event 'showTime'");
-			data.incrementAndGet();
+			atomicInteger.incrementAndGet();
 			latch.countDown();
 			return null;
 		});
@@ -112,10 +113,10 @@ public class SimpleSMTest {
 		Date fireTime = new Date(startTime.getTime() + 100);
 		smc.saveEvent(d1, "showTime", new HashMap<>(), fireTime);
 		TimeUnit.MILLISECONDS.sleep(50);
-		assertEquals("event fired before timeout", data.get(), 0);
+		assertEquals("event fired before timeout", atomicInteger.get(), 0);
 
 		latch.await(1, TimeUnit.SECONDS);
-		assertEquals("wrong data after event", 1, data.get());
+		assertEquals("wrong data after event", 1, atomicInteger.get());
 		Date now = new Date();
 		assertEquals("the timeout has not expired",true, now.getTime()-fireTime.getTime() > 0);
 	}

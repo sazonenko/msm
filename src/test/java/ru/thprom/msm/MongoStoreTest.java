@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import ru.thprom.msm.api.State;
-import ru.thprom.msm.api.Store;
+import ru.thprom.msm.mongo.MongoStore;
 
 /**
  * Created by void on 24.11.16

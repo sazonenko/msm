@@ -210,7 +210,7 @@ public class StateMachineContext {
 				log.error("error processing state: ["+ stateBefore +"], event: ["+ event +"]", e);
 				stateAfter = stateBefore;
 				stateAfter.setStatus(Store.STATUS_ERROR);
-				Map<String, Object> data = stateAfter.getData();
+				Map<String, Object> data = stateAfter.getContext();
 				data.put("exception", e.toString());
 				event = null; // prevent mark this event processed
 			}
