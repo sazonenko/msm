@@ -20,7 +20,9 @@ import ru.thprom.msm.api.Store;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,13 +34,15 @@ public class MongoStore implements Store {
 	public static final String STATES_COLLECTION = "states";
 	public static final String DELAYED_EVENTS_COLLECTION = "delayed_events";
 
-	public static final String FIELD_EVENTS = "events";
-
 	public static final String FIELD_STATE_NAME = "name";
 	public static final String FIELD_STATUS = "status";
 	public static final String FIELD_MOD_TIME = "mTime";
 	public static final String FIELD_DATA = "data";
+	public static final String FIELD_EVENTS = "events";
 	public static final String FIELD_EVENT_COUNT = "eventCount";
+
+	public static final String EF_ID = "id";
+	public static final String EF_TYPE = "event";
 	public static final String EF_CREATED = "created";
 	public static final String DEF_STATE_ID = "stateId";
 	public static final String DEF_FIRE_TIME = "fireTime";
@@ -87,6 +91,14 @@ public class MongoStore implements Store {
 		if (null != data) {
 			stateDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
+		Document eventDoc = new Document(EF_TYPE, stateName)
+				.append(EF_ID, new ObjectId())
+				.append(EF_CREATED, new Date());
+		List<Document> events = new ArrayList<>(1);
+		events.add(eventDoc);
+		stateDoc.append(FIELD_EVENT_COUNT, 1)
+				.append(FIELD_EVENTS, events);
+
 		MongoCollection<Document> states = dbh.getCollection(statesCollectionName);
 		states.insertOne(stateDoc);
 		ObjectId stateId = stateDoc.get("_id", ObjectId.class);
@@ -109,7 +121,7 @@ public class MongoStore implements Store {
 
 		Document document = new Document("$set", updateDoc);
 		if (null != event) {
-			document.append("$pull", new Document(FIELD_EVENTS, new Document("id", event.getId())))
+			document.append("$pull", new Document(FIELD_EVENTS, new Document(EF_ID, event.getId())))
 					.append("$inc", new Document(FIELD_EVENT_COUNT, -1));
 		}
 		log.debug("update doc: {}", document);
@@ -130,12 +142,13 @@ public class MongoStore implements Store {
 	@Override
 	public boolean saveEvent(String eventType, Object stateId, Map<String, Object> data) {
 		log.debug("save event '{}' for [{}]", eventType, stateId);
-		Document eventDoc = new Document("event", eventType)
-				.append("_id", new ObjectId());
+		Document eventDoc = new Document(EF_TYPE, eventType)
+				.append(EF_ID, new ObjectId())
+				.append(EF_CREATED, new Date());
 		if (null != data) {
-			eventDoc.append(FIELD_DATA, converter.toDocument(data));
+			eventDoc.append(FIELD_DATA, data);
+			//eventDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
-		eventDoc.append(EF_CREATED, new Date());
 
 		return saveEvent(stateId, eventDoc);
 	}
@@ -156,10 +169,11 @@ public class MongoStore implements Store {
 	@Override
 	public void saveEvent(String eventType, Object stateId, Map<String, Object> data, Date fireTime) {
 		log.debug("save delayed event '{}' for [{}], fire at [{}]", eventType, stateId, fireTime);
-		Document eventDoc = new Document("event", eventType)
-				.append("id", new ObjectId());
+		Document eventDoc = new Document(EF_TYPE, eventType)
+				.append(EF_ID, new ObjectId());
 		if (null != data) {
-			eventDoc.append(FIELD_DATA, converter.toDocument(data));
+			eventDoc.append(FIELD_DATA, data);
+		//	eventDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
 
 		eventDoc.append(DEF_STATE_ID, stateId);

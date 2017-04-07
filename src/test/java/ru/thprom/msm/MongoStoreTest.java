@@ -1,6 +1,7 @@
 package ru.thprom.msm;
 
 import org.bson.types.ObjectId;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -9,6 +10,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import ru.thprom.msm.api.State;
 import ru.thprom.msm.mongo.MongoStore;
+
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Created by void on 24.11.16
@@ -27,9 +30,13 @@ public class MongoStoreTest {
 	@Test
 	public void findStateTest() {
 		ObjectId testStateId = mongoStore.saveState("test", null);
+
 		State stateWithEvent = mongoStore.findStateWithEvent();
 		log.info("found state: {}", stateWithEvent);
+		assertNotNull(stateWithEvent);
+
 		State state = mongoStore.findState(testStateId);
 		log.info("for id {} found state: {}", testStateId, state);
+		assertNotNull(state);
 	}
 }

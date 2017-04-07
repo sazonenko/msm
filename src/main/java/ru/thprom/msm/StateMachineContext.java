@@ -54,15 +54,6 @@ public class StateMachineContext {
 		});
 	}
 
-	public void saveState(Map<String, Object> stateData) {
-		String state = (String) stateData.get("state");
-		if (null == state) {
-			throw new IllegalArgumentException("No 'state' field in state data");
-		}
-		Object id = store.saveState(state, stateData);
-		store.saveEvent(state, id, null);
-	}
-
 	/**
 	 * create new State
 	 * @param state - name of the state
@@ -80,7 +71,7 @@ public class StateMachineContext {
 	 */
 	public Object addState(String state, Map<String, Object> data) {
 		Object id = store.saveState(state, data);
-		store.saveEvent(state, id, null);
+		//store.saveEvent(state, id, null);
 		return id;
 	}
 

@@ -41,7 +41,7 @@ public class SimpleJacksonObjectConverter implements ObjectConverter {
 	@Override
 	public Map<String, Object> toObject(String doc) {
 		try {
-			return mapper.readValue(doc, Map.class);
+			return doc == null ? null : mapper.readValue(doc, Map.class);
 //			return reader.readValue(doc.toJson());
 		} catch (IOException e) {
 			throw new RuntimeException("can't convert Map object from JSON", e);

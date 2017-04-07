@@ -79,7 +79,6 @@ public class SimpleSMTest {
 
 		Object stateTwoId = smc.addState("two");
 		smc.start(1);
-//		TimeUnit.SECONDS.sleep(2);
 		smc.saveEvent(stateTwoId, "fire");
 
 		log.info("wait for events");
