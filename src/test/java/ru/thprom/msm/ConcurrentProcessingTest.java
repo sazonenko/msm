@@ -84,7 +84,7 @@ public class ConcurrentProcessingTest {
 		smc.addListener("wait", "work_done", (state, event) -> {
 			log.info("work_done : state [{}] processed", state);
 			Map<String, Object> stateData = state.getContext();
-			Map<String, Object> eventData = event.getData();
+			Map<String, Object> eventData = event.getContext();
 
 			int count = (Integer) stateData.get("count");
 			int result = (Integer) stateData.get("result");

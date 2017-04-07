@@ -9,17 +9,17 @@ public class Event {
 	private Object id;
 	private Object stateId;
 	private String type;
-	private Map<String, Object> data;
+	private Map<String, Object> context;
 
 	public Event() {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Event(Object stateId, Map<String, Object> event) {
+	public Event(Object stateId, Map<String, Object> event, Map<String, Object> eventContext) {
 		id = event.get("id");
 		this.stateId = stateId;
 		type = (String) event.get("event");
-		data = (Map<String, Object>) event.get("data");
+		context = eventContext;
 	}
 
 	public Object getId() {
@@ -46,12 +46,12 @@ public class Event {
 		this.type = type;
 	}
 
-	public Map<String, Object> getData() {
-		return data;
+	public Map<String, Object> getContext() {
+		return context;
 	}
 
-	public void setData(Map<String, Object> data) {
-		this.data = data;
+	public void setContext(Map<String, Object> context) {
+		this.context = context;
 	}
 
 	@Override
@@ -59,7 +59,7 @@ public class Event {
 		return "Event{" +
 				"id=" + id +
 				", type='" + type + '\'' +
-				", data=" + data +
+				", context=" + context +
 				'}';
 	}
 }

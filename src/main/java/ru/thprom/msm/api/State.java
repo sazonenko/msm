@@ -21,21 +21,13 @@ public class State {
 	}
 
 	@SuppressWarnings("unchecked")
-	public State(Map<String, Object> stateData, Map<String, Object> context) {
+	public State(Map<String, Object> stateData, Map<String, Object> context, ArrayList<Event> events) {
 		id = stateData.get("_id");
 		stateName = (String) stateData.get("name");
 		status = (String) stateData.get("status");
 		mTime = (Date) stateData.get("mTime");
 		this.context = context;
-		List<Map<String, Object>> events = (List<Map<String, Object>>) stateData.get("events");
-		int eventsCount = null == events? 0 : events.size();
-		this.events = new ArrayList<>(eventsCount);
-		if (null != events) {
-			for (Map<String, Object> eventDoc : events) {
-				Event event = new Event(id, eventDoc);
-				this.events.add(event);
-			}
-		}
+		this.events = events;
 	}
 
 	public Object getId() {

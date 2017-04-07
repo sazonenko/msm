@@ -57,7 +57,7 @@ public class MongoStore implements Store {
 	private String collectionPrefix = COLLECTION_PREFIX;
 	private String statesCollectionName = STATES_COLLECTION;
 	private String delayedEventsCollection = DELAYED_EVENTS_COLLECTION;
-	private ObjectConverter converter;
+	private Serializer converter;
 
 	public void connect() {
 		ServerAddress serverAddress = new ServerAddress(host, port);
@@ -78,7 +78,7 @@ public class MongoStore implements Store {
 		statesCollectionName = collectionPrefix + STATES_COLLECTION;
 		delayedEventsCollection = collectionPrefix + DELAYED_EVENTS_COLLECTION;
 		if (null == converter) {
-			converter = new SimpleJacksonObjectConverter();
+			converter = new SimpleJacksonSerializer();
 		}
 	}
 
@@ -146,8 +146,7 @@ public class MongoStore implements Store {
 				.append(EF_ID, new ObjectId())
 				.append(EF_CREATED, new Date());
 		if (null != data) {
-			eventDoc.append(FIELD_DATA, data);
-			//eventDoc.append(FIELD_DATA, converter.toDocument(data));
+			eventDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
 
 		return saveEvent(stateId, eventDoc);
@@ -172,8 +171,7 @@ public class MongoStore implements Store {
 		Document eventDoc = new Document(EF_TYPE, eventType)
 				.append(EF_ID, new ObjectId());
 		if (null != data) {
-			eventDoc.append(FIELD_DATA, data);
-		//	eventDoc.append(FIELD_DATA, converter.toDocument(data));
+			eventDoc.append(FIELD_DATA, converter.toDocument(data));
 		}
 
 		eventDoc.append(DEF_STATE_ID, stateId);
@@ -278,15 +276,28 @@ public class MongoStore implements Store {
 		collectionPrefix = prefix;
 	}
 
-	public void setConverter(ObjectConverter converter) {
+	public void setConverter(Serializer converter) {
 		this.converter = converter;
 	}
 
 	private State buildState(Document stateDoc) {
 		State result = null;
 		if (null != stateDoc) {
+			Object id = stateDoc.get("_id");
 			Map<String, Object> context = converter.toObject(stateDoc.get(FIELD_DATA, String.class));
-			result = new State(stateDoc, context);
+
+			List<Map<String, Object>> eventsList = (List<Map<String, Object>>) stateDoc.get("events");
+			ArrayList<Event> events = null;
+			if (null != eventsList) {
+				events = new ArrayList<>(eventsList.size());
+				for (Map<String, Object> eventDoc : eventsList) {
+					Map<String, Object> eventContext = converter.toObject(stateDoc.get(FIELD_DATA, String.class));
+					Event event = new Event(id, eventDoc, eventContext);
+					events.add(event);
+				}
+			}
+
+			result = new State(stateDoc, context, events);
 		}
 		return result;
 	}

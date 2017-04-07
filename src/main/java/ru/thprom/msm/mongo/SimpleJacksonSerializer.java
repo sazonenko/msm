@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import org.bson.Document;
 
 import java.io.IOException;
 import java.util.Map;
@@ -12,13 +11,13 @@ import java.util.Map;
 /**
  * Created by void on 05.04.17
  */
-public class SimpleJacksonObjectConverter implements ObjectConverter {
+public class SimpleJacksonSerializer implements Serializer {
 
 	private ObjectMapper mapper;
 	private ObjectWriter writer;
 	private ObjectReader reader;
 
-	public SimpleJacksonObjectConverter() {
+	public SimpleJacksonSerializer() {
 		mapper = new ObjectMapper();
 		mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
 		writer = mapper.writer();
@@ -42,7 +41,7 @@ public class SimpleJacksonObjectConverter implements ObjectConverter {
 	public Map<String, Object> toObject(String doc) {
 		try {
 			return doc == null ? null : mapper.readValue(doc, Map.class);
-//			return reader.readValue(doc.toJson());
+			//return doc == null ? null : reader.readValue(doc);
 		} catch (IOException e) {
 			throw new RuntimeException("can't convert Map object from JSON", e);
 		}

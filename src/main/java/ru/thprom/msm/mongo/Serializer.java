@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * Created by void on 05.04.17
  */
-public interface ObjectConverter {
+public interface Serializer {
 
 	String toDocument(Map<String, Object> data);
 
