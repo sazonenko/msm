@@ -20,16 +20,6 @@ public class State {
 	public State() {
 	}
 
-	@SuppressWarnings("unchecked")
-	public State(Map<String, Object> stateData, Map<String, Object> context, ArrayList<Event> events) {
-		id = stateData.get("_id");
-		stateName = (String) stateData.get("name");
-		status = (String) stateData.get("status");
-		mTime = (Date) stateData.get("mTime");
-		this.context = context;
-		this.events = events;
-	}
-
 	public Object getId() {
 		return id;
 	}

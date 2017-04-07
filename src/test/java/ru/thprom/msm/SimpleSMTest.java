@@ -2,6 +2,7 @@ package ru.thprom.msm;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,7 @@ public class SimpleSMTest {
 		smc.start(1);
 
 		latch.await();
+		TimeUnit.MILLISECONDS.sleep(10);  // allow internal thread delete processed state from db
 		State state = smc.findState(key);
 		log.debug("found state: {}", state);
 		assertNull("found state: " + state, state);
@@ -120,6 +122,7 @@ public class SimpleSMTest {
 		assertEquals("the timeout has not expired",true, now.getTime()-fireTime.getTime() > 0);
 	}
 
+	@Ignore
 	@Test
 	public void testException() throws InterruptedException {
 		AtomicInteger i = new AtomicInteger();
@@ -133,7 +136,7 @@ public class SimpleSMTest {
 		});
 
 		smc.start(1);
-		Object e1 = smc.addState("e1");
+		smc.addState("e1");
 		TimeUnit.SECONDS.sleep(2);
 
 	}

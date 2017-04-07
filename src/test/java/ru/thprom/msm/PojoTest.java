@@ -39,9 +39,9 @@ public class PojoTest {
 	}
 
 	@Test
-	public void testPojo() throws InterruptedException {
+	public void testPojoInState() throws InterruptedException {
 		final CountDownLatch latch = new CountDownLatch(1);
-		final User[] users = {new User("vasya"), null};
+		final User[] users = {new User("Василий"), null};
 
 		smc.addListener("pojo1", (state, event) ->{
 			log.info("state pojo1");
@@ -53,7 +53,35 @@ public class PojoTest {
 		smc.start(1);
 		HashMap<String, Object> data = new HashMap<>();
 		data.put("user", users[0]);
-		Object e1 = smc.addState("pojo1", data);
+		smc.addState("pojo1", data);
+		latch.await();
+		assertEquals("Users is not equal", users[0], users[1]);
+	}
+
+	@Test
+	public void testPojoInEvent() throws InterruptedException {
+		final CountDownLatch latch = new CountDownLatch(1);
+		final User[] users = {new User("Пётр"), null};
+
+		smc.addListener("pojo2", (state, event) ->{
+			log.info("event 'pojo2'");
+			return state;
+		});
+
+		smc.addListener("pojo2", "update", (state, event) ->{
+			log.info("event 'update'");
+			users[1] = (User) event.getContext().get("user");
+			latch.countDown();
+			return null;
+		});
+
+		smc.start(1);
+		Object stateId = smc.addState("pojo2");
+
+		HashMap<String, Object> data = new HashMap<>();
+		data.put("user", users[0]);
+		smc.saveEvent(stateId, "update", data);
+
 		latch.await();
 		assertEquals("Users is not equal", users[0], users[1]);
 	}
@@ -61,6 +89,7 @@ public class PojoTest {
 	public static class User {
 		public String name;
 
+		@SuppressWarnings("unused") // used by serialization
 		public User() {
 		}
 

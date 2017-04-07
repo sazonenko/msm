@@ -34,6 +34,7 @@ public class MongoStore implements Store {
 	public static final String STATES_COLLECTION = "states";
 	public static final String DELAYED_EVENTS_COLLECTION = "delayed_events";
 
+	public static final String FIELD_ID = "_id";
 	public static final String FIELD_STATE_NAME = "name";
 	public static final String FIELD_STATUS = "status";
 	public static final String FIELD_MOD_TIME = "mTime";
@@ -101,14 +102,14 @@ public class MongoStore implements Store {
 
 		MongoCollection<Document> states = dbh.getCollection(statesCollectionName);
 		states.insertOne(stateDoc);
-		ObjectId stateId = stateDoc.get("_id", ObjectId.class);
+		ObjectId stateId = stateDoc.get(FIELD_ID, ObjectId.class);
 		log.debug("saved state [{} : '{}']", stateId, stateName);
 		return stateId;
 	}
 
 	@Override
 	public void updateState(State state, Event event) {
-		Document filter = new Document("_id", state.getId());
+		Document filter = new Document(FIELD_ID, state.getId());
 		Document updateDoc = new Document(FIELD_STATE_NAME, state.getStateName())
 				.append(FIELD_MOD_TIME, new Date())
 				.append(FIELD_DATA, converter.toDocument(state.getContext()));
@@ -131,7 +132,7 @@ public class MongoStore implements Store {
 
 	@Override
 	public void updateStateStatus(Object stateId, String status) {
-		Document filter = new Document("_id", stateId);
+		Document filter = new Document(FIELD_ID, stateId);
 		Document updateDoc = new Document(FIELD_STATUS, status);
 		Document document = new Document("$set", updateDoc);
 
@@ -154,7 +155,7 @@ public class MongoStore implements Store {
 
 	private boolean saveEvent(Object stateId, Document eventDoc) {
 		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
-		Document filter = new Document("_id", stateId);
+		Document filter = new Document(FIELD_ID, stateId);
 		Document updateDoc = new Document("$inc", new Document(FIELD_EVENT_COUNT, 1))
 				.append("$push", new Document(FIELD_EVENTS, eventDoc));
 		UpdateResult updateResult = collection.updateOne(filter, updateDoc);
@@ -191,7 +192,7 @@ public class MongoStore implements Store {
 		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
 
 		log.debug("before find state with event");
-		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
+		Document stateDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document(FIELD_ID, 1)));
 		log.debug("found state [{}]", stateDoc);
 		return buildState(stateDoc);
 	}
@@ -203,14 +204,14 @@ public class MongoStore implements Store {
 				.append(DEF_FIRE_TIME, new Document("$lte", new Date()));
 		Document update = new Document("$set", new Document(FIELD_STATUS, "process").append(FIELD_MOD_TIME, new Date()));
 
-		Document eventDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document("_id", 1)));
+		Document eventDoc = collection.findOneAndUpdate(filter, update, new FindOneAndUpdateOptions().sort(new Document(FIELD_ID, 1)));
 
 		if (null != eventDoc) {
 			Object stateId = eventDoc.remove(DEF_STATE_ID);
 			eventDoc.remove(DEF_FIRE_TIME);
 			eventDoc.append(FIELD_STATUS, "");
 			if (saveEvent(stateId, eventDoc)) {
-				DeleteResult deleteResult = collection.deleteOne(new Document("_id", eventDoc.get("_id")));
+				DeleteResult deleteResult = collection.deleteOne(new Document(FIELD_ID, eventDoc.get(FIELD_ID)));
 				return deleteResult.getDeletedCount() > 0;
 			}
 		}
@@ -232,7 +233,7 @@ public class MongoStore implements Store {
 	@Override
 	public State findState(Object id) {
 		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
-		FindIterable<Document> docs = collection.find(new Document("_id", id)).limit(1);
+		FindIterable<Document> docs = collection.find(new Document(FIELD_ID, id)).limit(1);
 		return buildState(docs.first());
 	}
 
@@ -240,7 +241,7 @@ public class MongoStore implements Store {
 	public void delete(Object id) {
 		MongoCollection<Document> collection = dbh.getCollection(statesCollectionName);
 
-		DeleteResult deleteResult = collection.deleteOne(new Document("_id", id));
+		DeleteResult deleteResult = collection.deleteOne(new Document(FIELD_ID, id));
 		log.debug("delete {}, result: {}", id, deleteResult);
 	}
 
@@ -281,24 +282,42 @@ public class MongoStore implements Store {
 	}
 
 	private State buildState(Document stateDoc) {
-		State result = null;
+		State state = null;
 		if (null != stateDoc) {
-			Object id = stateDoc.get("_id");
-			Map<String, Object> context = converter.toObject(stateDoc.get(FIELD_DATA, String.class));
+			state = new State();
+			Object stateId = stateDoc.get(FIELD_ID);
+			state.setId(stateId);
+			state.setStateName(stateDoc.get( FIELD_STATE_NAME, String.class));
+			state.setStatus(stateDoc.get( FIELD_STATUS, String.class));
+			state.setmTime(stateDoc.get( FIELD_MOD_TIME, Date.class));
 
-			List<Map<String, Object>> eventsList = (List<Map<String, Object>>) stateDoc.get("events");
+			Map<String, Object> context = converter.toObject(stateDoc.get(FIELD_DATA, String.class));
+			state.setContext(context);
+
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> eventsList = (List) stateDoc.get(FIELD_EVENTS);
 			ArrayList<Event> events = null;
 			if (null != eventsList) {
 				events = new ArrayList<>(eventsList.size());
 				for (Map<String, Object> eventDoc : eventsList) {
-					Map<String, Object> eventContext = converter.toObject(stateDoc.get(FIELD_DATA, String.class));
-					Event event = new Event(id, eventDoc, eventContext);
+					Event event = buildEvent(stateId, eventDoc);
 					events.add(event);
 				}
 			}
 
-			result = new State(stateDoc, context, events);
+			state.setEvents(events);
 		}
-		return result;
+		return state;
+	}
+
+	private Event buildEvent(Object stateId, Map<String, Object> eventDoc) {
+		Event event = new Event();
+		event.setStateId(stateId);
+		event.setId(eventDoc.get(EF_ID));
+		event.setType((String) eventDoc.get(EF_TYPE));
+		event.setCreated((Date) eventDoc.get(EF_CREATED));
+		Map<String, Object> eventContext = converter.toObject((String) eventDoc.get(FIELD_DATA));
+		event.setContext(eventContext);
+		return event;
 	}
 }

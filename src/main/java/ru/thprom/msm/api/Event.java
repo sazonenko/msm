@@ -1,5 +1,6 @@
 package ru.thprom.msm.api;
 
+import java.util.Date;
 import java.util.Map;
 
 /**
@@ -9,17 +10,10 @@ public class Event {
 	private Object id;
 	private Object stateId;
 	private String type;
+	private Date created;
 	private Map<String, Object> context;
 
 	public Event() {
-	}
-
-	@SuppressWarnings("unchecked")
-	public Event(Object stateId, Map<String, Object> event, Map<String, Object> eventContext) {
-		id = event.get("id");
-		this.stateId = stateId;
-		type = (String) event.get("event");
-		context = eventContext;
 	}
 
 	public Object getId() {
@@ -46,6 +40,14 @@ public class Event {
 		this.type = type;
 	}
 
+	public Date getCreated() {
+		return created;
+	}
+
+	public void setCreated(Date created) {
+		this.created = created;
+	}
+
 	public Map<String, Object> getContext() {
 		return context;
 	}
@@ -58,7 +60,9 @@ public class Event {
 	public String toString() {
 		return "Event{" +
 				"id=" + id +
+				", stateId=" + stateId +
 				", type='" + type + '\'' +
+				", created=" + created +
 				", context=" + context +
 				'}';
 	}
