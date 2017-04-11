@@ -1,5 +1,3 @@
-https://gist.github.com/sazonenko/102316c654dbf7cba3c8db9d62eb3383.js
-
 
 function AutoPXLS(images){
 //
