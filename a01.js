@@ -153,6 +153,8 @@ function AutoPXLS(images){
     function drawImage(){
       if(image_loaded_flag){
         return tryToDraw();
+      } else {
+        console.log("image_loaded_flag: " + image_loaded_flag);
       }
       return -1;
     }
@@ -200,6 +202,7 @@ function AutoPXLS(images){
             return;
           }
           else{
+            console.log("result: " + result);
             continue;
           }
         }
