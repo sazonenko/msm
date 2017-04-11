@@ -125,7 +125,7 @@ function AutoPXLS(images){
       for(var _y = 0; _y < canvas.height; _y++){
         for(var _x = 0; _x < canvas.width; _x++){
           var r = tryToDrawPixel(_x, _y);
-          if (r == 0) continue;
+          if (r == 0) continue; else return r;
         }
       }
       console.log(title + " is correct");
