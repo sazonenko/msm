@@ -120,8 +120,9 @@ function AutoPXLS(images){
     }
 
     function tryToDraw(){
-      for(var _y = 0; _y < canvas.height; _y++){
-        for(var _x = 0; _x < canvas.width; _x++){
+      for(var _y = 0; _y < canvas.height; _y+=2){
+        var start = _y % 2 == 0 ? 0 : 1;
+        for(var _x = start; _x < canvas.width; _x+=2){
           var r = tryToDrawPixel(_x, _y);
           if (r == 0) continue; else return r;
         }
@@ -130,7 +131,7 @@ function AutoPXLS(images){
       return -1;
     }
     
-    function tryToDrawPixel() {
+    function tryToDrawPixel(_x, _y) {
           var coords = {x: _x, y: _y};
 
           if(isSamePixelColor(coords)){
