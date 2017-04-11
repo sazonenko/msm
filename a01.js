@@ -55,7 +55,8 @@ function AutoPXLS(images){
 
     var img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = config.image;
+      console.log("start loading: " + config.image);
+      img.src = config.image;
     var x = config.x;
     var y = config.y;
 
