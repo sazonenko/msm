@@ -21,7 +21,7 @@ function AutoPXLS(images){
     return array;
   }
 
-  images = shuffle(images);
+//  images = shuffle(images);
 
 // ===
   
@@ -170,11 +170,13 @@ function AutoPXLS(images){
       image.drawImage(img, 0, 0, img.width, img.height);
 
       image_loaded_flag = true;
+        console.log("image_loaded! flag: " + image_loaded_flag);
     };
 
 
 
     return {
+        image: img,
       drawImage: drawImage,
       isReady: isReady
     }
