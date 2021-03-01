@@ -26,7 +26,7 @@ public class SpringContext {
 	public Store mongoStore() {
 		MongoStore mongoStore = new MongoStore();
 		mongoStore.setHost(env.getProperty("mongo.host"));
-		mongoStore.setPort(env.getProperty("mongo.port", Integer.class));
+		mongoStore.setPort(env.getProperty("mongo.port", Integer.class, 27018));
 		mongoStore.setDatabaseName(env.getProperty("mongo.database"));
 		mongoStore.connect();
 		return mongoStore;
@@ -34,8 +34,6 @@ public class SpringContext {
 
 	@Bean
 	public StateMachineContext smContext() {
-		StateMachineContext context = new StateMachineContext();
-		context.setStore(mongoStore());
-		return context;
+		return new StateMachineContext(mongoStore());
 	}
 }

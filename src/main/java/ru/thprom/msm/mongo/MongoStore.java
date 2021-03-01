@@ -18,7 +18,6 @@ import ru.thprom.msm.api.Event;
 import ru.thprom.msm.api.State;
 import ru.thprom.msm.api.Store;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Date;
@@ -61,6 +60,12 @@ public class MongoStore implements Store {
 	private Serializer converter;
 
 	public void connect() {
+		statesCollectionName = collectionPrefix + STATES_COLLECTION;
+		delayedEventsCollection = collectionPrefix + DELAYED_EVENTS_COLLECTION;
+		if (null == converter) {
+			converter = new SimpleJacksonSerializer();
+		}
+
 		ServerAddress serverAddress = new ServerAddress(host, port);
 		softClient = new MongoClient(serverAddress);
 		dbs = softClient.getDatabase(databaseName);
@@ -72,15 +77,6 @@ public class MongoStore implements Store {
 				.build();
 		hardClient = new MongoClient(serverAddress, hardOptions);
 		dbh = hardClient.getDatabase(databaseName);
-	}
-
-	@PostConstruct
-	public void init() {
-		statesCollectionName = collectionPrefix + STATES_COLLECTION;
-		delayedEventsCollection = collectionPrefix + DELAYED_EVENTS_COLLECTION;
-		if (null == converter) {
-			converter = new SimpleJacksonSerializer();
-		}
 	}
 
 	@Override

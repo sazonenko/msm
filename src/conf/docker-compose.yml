@@ -1,8 +1,7 @@
 md_mongodb:
   container_name: md_mongodb
   hostname: mongodb.md
-  net: rxmd
-  image: mongo:3.2.0
+  image: mongo:3.6.22
   volumes:
     - ./data/mongo:/data/db
     - ./etc/mongo:/etc/mongo

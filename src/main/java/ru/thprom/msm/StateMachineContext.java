@@ -22,36 +22,30 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Created by void on 28.07.2016
  */
 public class StateMachineContext {
-	private static Logger log = LoggerFactory.getLogger(StateMachineContext.class);
+	private static final int EVENTS_PER_INVOCATION = 100;
+	private static final int DELAYED_EVENT_INITIAL_DELAY = 100;
+	private static final int DELAYED_EVENT_PERIOD = 100;
+	private static final Logger log = LoggerFactory.getLogger(StateMachineContext.class);
 
 	private static final int DEFAULT_THREAD_COUNT = 5;
 
 	private Store store;
-	private Map<String, EventProcessor> eventListeners;
-	private ExecutorService processExecutor;
-	private ScheduledExecutorService scheduledExecutorService;
+	private final Map<String, EventProcessor> eventListeners;
+	private final ExecutorService processExecutor;
+	private final ScheduledExecutorService delayedEventsExecutor;
 	private boolean destroy;
 	private int timeout = 500;
 	private int terminationTimeout = 60000;
 
-	public StateMachineContext() {
+	/**
+	 *
+	 * @param store - Store implementation
+	 */
+	public StateMachineContext(Store store) {
+		this.store = store;
 		eventListeners = new HashMap<>();
-
-		processExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
-			AtomicInteger count = new AtomicInteger();
-			@Override
-			public Thread newThread(Runnable r) {
-				return new Thread(r, "smc-worker-" + count.incrementAndGet());
-			}
-		});
-
-		scheduledExecutorService = Executors.newScheduledThreadPool(1, new ThreadFactory() {
-			AtomicInteger count = new AtomicInteger();
-			@Override
-			public Thread newThread(Runnable r) {
-				return new Thread(r, "smc-scheduled-" + count.incrementAndGet());
-			}
-		});
+		processExecutor = Executors.newCachedThreadPool(new NamedThreadFactory("smc-worker-"));
+		delayedEventsExecutor = Executors.newScheduledThreadPool(1, new NamedThreadFactory("smc-scheduled-"));
 	}
 
 	/**
@@ -65,7 +59,7 @@ public class StateMachineContext {
 
 	/**
 	 * create new State
-	 * @param state - nema of the state
+	 * @param state - name of the state
 	 * @param data - additional data
 	 * @return Object ID identifying created state
 	 */
@@ -115,14 +109,15 @@ public class StateMachineContext {
 			processExecutor.submit(new Stoppable(new EventWorker()));
 		}
 
-		scheduledExecutorService.scheduleAtFixedRate(new DelayedEventWorker(), 100, 100, TimeUnit.MILLISECONDS);
+		delayedEventsExecutor.scheduleAtFixedRate(new DelayedEventWorker(),
+				DELAYED_EVENT_INITIAL_DELAY, DELAYED_EVENT_PERIOD, TimeUnit.MILLISECONDS);
 	}
 
 	@PreDestroy
 	public void stop() {
 		destroy = true;
 		try {
-			scheduledExecutorService.shutdown();
+			delayedEventsExecutor.shutdown();
 			processExecutor.shutdown();
 			boolean done = processExecutor.awaitTermination(terminationTimeout, TimeUnit.MILLISECONDS);
 			log.debug("terminated: {}", done);
@@ -133,14 +128,6 @@ public class StateMachineContext {
 		} catch (InterruptedException e) {
 			// ignored
 		}
-	}
-
-	/**
-	 * set up Store implementation
-	 * @param store - Store implementation
-	 */
-	public void setStore(Store store) {
-		this.store = store;
 	}
 
 	/**
@@ -159,12 +146,26 @@ public class StateMachineContext {
 		this.terminationTimeout = terminationTimeout;
 	}
 
+	private static class NamedThreadFactory implements ThreadFactory {
+		private final AtomicInteger count = new AtomicInteger();
+		private final String prefix;
+
+		public NamedThreadFactory(String prefix) {
+			this.prefix = prefix;
+		}
+
+		@Override
+		public Thread newThread(Runnable r) {
+			return new Thread(r, prefix + count.incrementAndGet());
+		}
+	}
+
 	private class DelayedEventWorker implements Runnable {
 
 		@Override
 		public void run() {
 			boolean result = true;
-			for (int i=0; i<100 && result; i++){
+			for (int i = 0; i< EVENTS_PER_INVOCATION && result; i++){
 				result = store.processReadyEvent();
 			}
 		}

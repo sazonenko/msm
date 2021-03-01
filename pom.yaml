@@ -5,8 +5,8 @@ version: 0.1-SNAPSHOT
 packaging: jar
 properties: {
   slf4j.version: 1.7.21,
-  spring.version: 4.1.2.RELEASE,
-  mongo.version: 3.2.2,
+  spring.version: 5.3.4,
+  mongo.version: 3.12.8,
   jackson.version: 2.8.7
 }
 
